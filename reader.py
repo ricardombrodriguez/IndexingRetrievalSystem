@@ -1,3 +1,5 @@
+import gzip
+import json
 from utils import dynamically_init_class
 
 
@@ -19,4 +21,8 @@ class PubMedReader(Reader):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         print("init PubMedReader|", f"{self.path_to_collection=}", )
-    
+
+        with gzip.open(self.path_to_collection, mode="rt") as f:
+            data = f.read()
+        print(len(data))
+        print(data[1:3000])
