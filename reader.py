@@ -1,6 +1,7 @@
 import gzip
 import json
 import sys
+from time import time
 from utils import dynamically_init_class
 
 
@@ -23,21 +24,31 @@ class PubMedReader(Reader):
         super().__init__(**kwargs)
         print("init PubMedReader|", f"{self.path_to_collection=}", )
 
+    def open_file(self):
         terms = {}
 
-        with gzip.open(self.path_to_collection, mode="rt") as f:
+        time_i = time()
+        with gzip.open(self.path_to_collection, mode="rt") as file:
+            cursor = 0
 
-            for pub in f:
+            while True:
+                cursor += 1
+            
+                # Get next line from file
+                line = file.readline()
+            
+                # if line is empty
+                # end of file is reached
+                if not line:
+                    break
 
-                pub_json = json.loads(pub)
-                pmid = pub_json['pmid']
+                pub_json = json.loads(line)
                 pub_terms = set(pub_json['title'].split() + pub_json['abstract'].split())
+
                 for term in pub_terms:
                     if term not in terms:
-                        terms[term] = [pmid]
+                        terms[term] = [pub_json['pmid']]
                     else:
-                        terms[term] += [pmid]
+                        terms[term] += [pub_json['pmid']]
 
-        print("The size of the dictionary is {} MBs".format(sys.getsizeof(terms)/1000000))
-        print(terms["science"])
-    
+        return terms

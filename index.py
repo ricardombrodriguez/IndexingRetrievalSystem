@@ -33,6 +33,8 @@ class SPIMIIndexer(Indexer):
         
     def build_index(self, reader, tokenizer, index_output_folder):
         print("Indexing some documents...")
+        ret = tokenizer.tokenize(reader.open_file())
+        print(ret.keys())
         
         
 class BaseIndex:
