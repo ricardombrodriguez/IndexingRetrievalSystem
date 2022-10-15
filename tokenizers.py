@@ -19,7 +19,7 @@ class Tokenizer:
         filtered_terms = {}
         for term in terms:                                                      # ABSTRACT.()awesome
             lower_term = term.lower()                                           # abstract.()awesome                                                      
-            filtered_term = re.sub('[^a-zA-Z\d\s:]-',' ',lower_term)            # abstract   awesome (allows '-')
+            filtered_term = re.sub('[^a-zA-Z\d\s:]',' ',lower_term)             # abstract   awesome (todo: dont remove hiphens)
             if lower_term != filtered_term:
                 for splitted_term in filtered_term.split():                     # [abstract, awesome]
                     if splitted_term not in filtered_terms:
