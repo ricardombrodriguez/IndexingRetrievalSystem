@@ -33,8 +33,45 @@ class SPIMIIndexer(Indexer):
         
     def build_index(self, reader, tokenizer, index_output_folder):
         print("Indexing some documents...")
-        ret = tokenizer.tokenize(reader.open_file())
-        print(ret.keys())
+
+        pmid, pub_terms = reader.read_next_pub()         # read publication
+        print("ANTES DO TOKENIZER")
+        print(pub_terms.keys())
+        tokens = tokenizer.tokenize(pmid, pub_terms) 
+        print("DEPOISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS")
+        print(tokens.keys()) 
+
+        # while True:
+        #     pub_terms = reader.read_next_pub()         # read publication
+        #     if not pub_terms:
+        #         break   # EOF
+        #     tokens = tokenizer.tokenize(pub_terms)     # flush publication terms to be filtered in the tokenizer
+        #     # merge tokens in data structure
+
+
+
+        """
+        NUM_PUBS = 0
+        BUFFER_SIZE = 1000
+        
+        While True:
+
+            document = reader.read_document(line=NUM_PUBS)
+            tokens = tokenizer.tokenize(document)
+            indexer += tokens
+
+            if RAM > threshold:
+                write_index_to_disk() #store metadata about it too
+                clean(indexer)
+
+
+        merge_indexes()
+
+
+        """
+
+        #ret = tokenizer.tokenize(reader.open_file())
+        #print(ret.keys())
         
         
 class BaseIndex:
