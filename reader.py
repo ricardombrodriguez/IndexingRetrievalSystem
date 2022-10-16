@@ -29,7 +29,7 @@ class PubMedReader(Reader):
 
         line = self.file.readline()
         if not line:
-            return None # fim do ficheiro
+            return None, None # fim do ficheiro
 
         terms = {}
         
