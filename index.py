@@ -2,6 +2,7 @@ from utils import dynamically_init_class
 import psutil
 import time
 import json
+import gzip
 import os
 
 def dynamically_init_indexer(**kwargs):
@@ -33,8 +34,9 @@ class SPIMIIndexer(Indexer):
         # it initializes this type of index
         super().__init__(InvertedIndex(posting_threshold), **kwargs)
         self.posting_threshold = posting_threshold
-        self.memory_threshold = memory_threshold if memory_threshold is not None else (psutil.virtual_memory().used + int(psutil.virtual_memory().available / 2)) >> 20
+        self.memory_threshold = memory_threshold if memory_threshold is not None else 75
         print("init SPIMIIndexer|", f"{posting_threshold=}, {memory_threshold=}")
+        print(f"{self.memory_threshold}mb")
         
     def build_index(self, reader, tokenizer, index_output_folder):
         print("Indexing some documents...")
@@ -47,10 +49,11 @@ class SPIMIIndexer(Indexer):
 
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
-            [self._index.add_term(token, doc_id) for token in tokens for doc_id in tokens[token]] # add terms to index
+            [self._index.add_term(token, doc_id, index_output_folder=index_output_folder, filename=f'{time.time()}') for token in tokens for doc_id in tokens[token]] # add terms to index
 
+            print(f"Using {psutil.virtual_memory().percent}% of memory", end="\r")
             # used_memory = psutil.virtual_memory().used >> 20  # in MB
-            if psutil.virtual_memory().used >> 20 > self.memory_threshold:
+            if psutil.virtual_memory().percent > self.memory_threshold:
                 self._index.write_to_disk(index_output_folder, f'{time.time()}')
                 self._index.clean_index()
 
@@ -66,7 +69,10 @@ class BaseIndex:
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
         if self._posting_threshold and len(self.posting_list) > self._posting_threshold:
-            self.write_to_disk()
+            if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
+                raise ValueError("index_output_folder and filename are required in kwargs in order to store the index on disk")
+
+            self.write_to_disk(kwargs['index_output_folder'], kwargs['filename'])
             self.clean_index()
 
         # document: [term1, term2, term3, ...]
@@ -82,11 +88,15 @@ class BaseIndex:
         self.posting_list = {}
 
     def write_to_disk(self, folder, filename):
+        print("Writing index to disk...")
         if not os.path.exists(folder):
             os.makedirs(folder)
 
-        with open(f"{folder}/{filename}.json", "w") as file:
-            json.dump(self.posting_list, file)
+        json_str = json.dumps(self.posting_list) + "\n"
+        json_bytes = json_str.encode('utf-8')
+
+        with gzip.open(f"{folder}/{filename}.json.gz", 'w') as fout:
+            fout.write(json_bytes)
     
     @classmethod
     def load_from_disk(cls, path_to_folder:str):
@@ -102,7 +112,10 @@ class InvertedIndex(BaseIndex):
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
         if self._posting_threshold and len(self.posting_list) > self._posting_threshold:
-            self.write_to_disk()
+            if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
+                raise ValueError("index_output_folder and filename are required in kwargs in order to store the index on disk")
+
+            self.write_to_disk(kwargs['index_output_folder'], kwargs['filename'])
             self.clean_index()
 
         # term: [doc_id1, doc_id2, doc_id3, ...]
@@ -116,6 +129,7 @@ class InvertedIndex(BaseIndex):
         raise NotImplementedError()
         # index = cls(posting_threshold, **kwargs)
         # index.posting_list = ... Adicionar os postings do ficheiro
+        # esta classe tem de retornar um InvertedIndex
     
     def print_statistics(self):
         print("Print some stats about this index.. This should be implemented by the base classes")
