@@ -37,8 +37,8 @@ class SPIMIIndexer(Indexer):
         super().__init__(InvertedIndex(posting_threshold), **kwargs)
         self.posting_threshold = posting_threshold
         self.memory_threshold = memory_threshold if memory_threshold is not None else 75
+
         print("init SPIMIIndexer|", f"{posting_threshold=}, {memory_threshold=}")
-        print(f"{self.memory_threshold}mb")
 
         self.BLOCK_TERMS_LIMIT = 10000
         
@@ -53,15 +53,15 @@ class SPIMIIndexer(Indexer):
 
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
-            [self._index.add_term(token, doc_id, index_output_folder=index_output_folder, filename=f'{time.time()}') for token in tokens for doc_id in tokens[token]] # add terms to index
+            [self._index.add_term(token, doc_id, index_output_folder=index_output_folder) for token in tokens for doc_id in tokens[token]] # add terms to index
 
             print(f"Using {psutil.virtual_memory().percent}% of memory", end="\r")
             # used_memory = psutil.virtual_memory().used >> 20  # in MB
             if psutil.virtual_memory().percent > self.memory_threshold:
-                self._index.write_to_disk(index_output_folder, f'{time.time()}')
+                self._index.write_to_disk_v2(index_output_folder)
                 self._index.clean_index()
 
-        self._index.write_to_disk(index_output_folder, f'{time.time()}')
+        self._index.write_to_disk_v2(index_output_folder)
         self._index.clean_index()
 
 class BaseIndex:
@@ -72,6 +72,8 @@ class BaseIndex:
 
         self.block_counter = 0
         self.BLOCK_TERMS_LIMIT = 10000
+
+        self.filenames = []
     
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
@@ -93,6 +95,23 @@ class BaseIndex:
 
     def clean_index(self):
         self.posting_list = {}
+
+    # Apenas escreve o indice em disco de forma ordenada
+    def write_to_disk_v2(self, folder):
+        print("Writing index to disk...")
+
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        # First, we need to sort the index
+        sorted_index = sorted(self.posting_list.items(), key=lambda x: x[0])
+
+        # Then we write it to disk
+        f = gzip.GzipFile(f"{folder}/block_{len(self.filenames)}.txt", "wb") # to read use the same line with rb
+        self.filenames.append(f"{folder}/block_{len(self.filenames)}.txt")
+        for term, posting in sorted_index:
+            f.write(f"{term} {' '.join([ str(el[0]) + ':' + str(el[1]) for el in posting])}\n".encode("utf-8"))
+        f.close()
 
     def write_to_disk(self, folder):
 
@@ -237,11 +256,11 @@ class InvertedIndex(BaseIndex):
     
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
-        if self._posting_threshold and len(self.posting_list) > self._posting_threshold:
-            if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
+        if (self._posting_threshold and len(self.posting_list) > self._posting_threshold) or (len(self.posting_list) > self.BLOCK_TERMS_LIMIT):
+            if 'index_output_folder' not in kwargs: # or 'filename' not in kwargs:
                 raise ValueError("index_output_folder and filename are required in kwargs in order to store the index on disk")
 
-            self.write_to_disk(kwargs['index_output_folder'], kwargs['filename'])
+            self.write_to_disk_v2(kwargs['index_output_folder']) #, kwargs['filename'])
             self.clean_index()
 
         # term: [doc_id1, doc_id2, doc_id3, ...]
