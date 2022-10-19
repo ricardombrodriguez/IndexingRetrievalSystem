@@ -1,11 +1,8 @@
 from utils import dynamically_init_class
 import psutil
 import time
-import json
-import gzip
 import math
 import os
-from itertools import islice
 
 def dynamically_init_indexer(**kwargs):
     return dynamically_init_class(__name__, **kwargs)
@@ -49,20 +46,21 @@ class SPIMIIndexer(Indexer):
             pmid, pub_terms = reader.read_next_pub()         # read publication
 
             if pmid is None:
+                print("EOF")
                 break
 
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
             [self._index.add_term(token, doc_id, int(counter), index_output_folder=index_output_folder, filename=f'{time.time()}') for token,data in tokens.items() for doc_id, counter in data.items()] # add terms to index
 
-            print(f"Using {psutil.virtual_memory().percent}% of memory")
+            pub_terms = {}
+
+            print(f"Using {psutil.virtual_memory().percent}% of memory | pmid={pmid} | pub_terms_len={len(self._index.posting_list)}")
+            print(f"memory threshold ---> {self.memory_threshold}")
             # used_memory = psutil.virtual_memory().used >> 20  # in MB
-            if psutil.virtual_memory().percent > self.memory_threshold:
+            if psutil.virtual_memory().percent > self.memory_threshold or len(self._index.posting_list) > self.BLOCK_TERMS_LIMIT or sum(len(self._index.posting_list.values()) > self.posting_threshold):
                 self._index.write_to_disk(index_output_folder)
                 self._index.clean_index()
-
-        self._index.write_to_disk(index_output_folder)
-        self._index.clean_index()
 
 class BaseIndex:
 
@@ -95,7 +93,6 @@ class BaseIndex:
 
     def write_to_disk(self, folder):
 
-        print("Writing index to disk...")
         if not os.path.exists(folder):
             os.makedirs(folder)
 
@@ -112,20 +109,29 @@ class BaseIndex:
 
         if not metadata:
 
+            print()
+            print("NO METADATA")
+
             blocks = self.get_block_chunks(tokens, sorted_index)
 
         else:
 
             # if there's a metadata file with content
 
+            print()
+            print("YESSSSS")
+
             for i in range(len(list(metadata))-1,-1,-1):                  # reverse for
+
+                print(f"initial word is {metadata[i][0]}")
+
 
                 block_terms = [token for token in tokens if token > metadata[i][0]]
                 
                 block_index = { token : sorted_index[token] for token in block_terms }
 
                 # read block and get block index to merge
-                with open(folder.replace("/","") + "/BLOCK_" + str(metadata[i][1]) + ".txt", "r+") as block_file:
+                with open(folder.replace("/","") + "/BLOCK_" + str(metadata[i][1]) + ".txt", "r+", encoding='utf-8') as block_file:
 
                     for line in block_file:
 
@@ -170,6 +176,7 @@ class BaseIndex:
 
                         metadata[idx] = [initial_token, metadata[i][1], num_tokens, num_postings]
                         metadata.sort(key = lambda x : x[0])    # sort by initial token
+
                         self.write_metadata(folder, metadata)
 
                 if blocks:
@@ -181,16 +188,22 @@ class BaseIndex:
         # exists a list of block indexes ready to be written on disk
         if blocks:
 
+            print("blokcs")
+
             for block in blocks:
 
                 self.block_counter += 1
 
                 filename = folder.replace("/","") + "/BLOCK_" + str(self.block_counter) + ".txt"
 
+                print()
+                print("filenameeee")
+                print(filename)
+
                 if not os.path.exists(filename):
                     os.mknod(filename)
 
-                with open(filename, "r+") as chunk_file:
+                with open(filename, "w", encoding='utf-8') as chunk_file:
 
                     for k,v in block.items():
 
@@ -203,7 +216,9 @@ class BaseIndex:
 
                 metadata.append([initial_token, self.block_counter, num_tokens, num_postings])
                 metadata.sort(key = lambda x : x[0])    # sort by initial token
+                print(metadata)
                 self.write_metadata(folder, metadata)
+                break
 
 
     def get_blocks_number(self, index):
@@ -229,6 +244,8 @@ class BaseIndex:
 
         if num_blocks != 1:
 
+            print(f"NUM OF BLOCKS IS {num_blocks}")
+
             chunk_length = math.floor(len(terms) / num_blocks)
 
             for i in range(num_blocks):
@@ -241,6 +258,8 @@ class BaseIndex:
         
         else:
 
+            print("num blocks -> 1")
+
             blocks.append(index)
         
         return blocks
@@ -249,24 +268,31 @@ class BaseIndex:
 
         metadata = []
 
-        with open(folder.replace("/","") + "/metadata.txt", "r+") as meta_file:
+        with open(folder.replace("/","") + "/metadata.txt", "r", encoding='utf-8') as meta_file:
             
-            for line in meta_file:
+            lines = meta_file.readlines()
+            #print(lines)
+
+            for line in lines:
 
                 data = line.split()
                 metadata.append([data[0]] + [int(element) for element in data[1:]])
+
+        meta_file.close()
 
         return metadata
     
     def write_metadata(self, folder, metadata):
 
-        with open(folder.replace("/","") + "/metadata.txt", "r+") as meta_file:
+        with open(folder.replace("/","") + "/metadata.txt", "w", encoding='utf-8') as meta_file:
             
             meta_file.truncate(0)
  
+            print()
+
             for line in metadata:
 
-                meta_file.write(" ".join([str(el) for el in line]) + "\n")
+                meta_file.write(" ".join([str(el) for el in line]) + '\n')
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):

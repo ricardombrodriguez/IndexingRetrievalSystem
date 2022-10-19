@@ -42,7 +42,7 @@ class PubMedReader(Reader):
                 terms[term] = { pmid:1 }        # new term in the publication
             else:
                 terms[term][pmid] += 1          # repeated term in the publication
-        
+
         return pmid, terms            # key -> term | value -> { pmid : count }
 
     def extract_file(self):
