@@ -96,9 +96,6 @@ class BaseIndex:
         if not os.path.exists(folder):
             os.makedirs(folder)
 
-        if not os.path.exists(folder.replace("/","") + "/metadata.txt"):
-            os.mknod(folder.replace("/","") + "/metadata.txt")    # create metadata file
-
         sorted_index = dict(sorted(self.posting_list.items(), key=lambda x : x[0]))   # index sorted by tokens
 
         metadata = self.load_metadata(folder)
@@ -268,10 +265,10 @@ class BaseIndex:
 
         metadata = []
 
-        with open(folder.replace("/","") + "/metadata.txt", "r", encoding='utf-8') as meta_file:
+        with open(folder.replace("/","") + "/metadata.txt", "w+", encoding='utf-8') as meta_file:
             
             lines = meta_file.readlines()
-            #print(lines)
+            print(lines)
 
             for line in lines:
 
