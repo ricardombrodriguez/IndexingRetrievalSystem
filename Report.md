@@ -8,7 +8,19 @@ In this section we will describe how we solved all the steps of this assignment.
 
 ### Reading the file
 
+The read_next_pub() method in the PubMedReader class is responsible for reading the collection publication by publication until there are none left. It only reads terms in the *title* and *abstract* sections and each term is mapped to the current publication identifier (*pmid*) and the number of times it appears in the publication, serving as a temporary index only for the publication.
+
 ### Creating tokens
+
+After receiving the temporary index from the last read publication, the tokenizer is responsible for filtering the terms according to the parameters introduced in the command line when executing the program. The steps of the tokenization are the following:
+1. Term is transformed into its lowercase version
+2. Term is filtered by the regular expression '[^a-zA-Z\d\s-]' which removes all the set of non-alphanumeric characters, for the exception of the hiphen *-*.
+3. All terms starting with one or more consecutive hiphens have them removed
+4. Terms and their count are merged into the temporary index data structure (*e.g.* if *block.* and *block* are both terms that appear one time in the publication, the tokenizer knows they're reffering to the same term and merge them, removing the term *block.* from the index and adding one unit to the *block* counter)
+5. If there's a minimum token lenght parameter, remove all the terms with less characters than the established value
+6. If there's a stopword file, remove all the terms that appear in it
+7. If there's a specified stemmer (potterNLTK, snowballNLTK, lancasterNLTK), stem the word
+8. Return filtered tokens
 
 ### Indexing
 
@@ -44,6 +56,6 @@ These results were achieved running [./assignment1.sh](./assignment1.sh)
 | File Size | Total Indexing Time | Index Size on Disk | Number of Temporary Files | Number of Terms |
 |---|---|---|---|---|
 | Tiny (134,4 MB) | 00:06:46 | 8.17426586151123 MB | 51 | 388222 |
-| Small (1,4 GB) | | | | |
+| Small (1,4 GB) | 01:39:39 | 38.461055755615234 MB | 511 | 1883845
 | Medium (4,4 GB) | | | | |
 | Large (9,5 GB) | | | | |
