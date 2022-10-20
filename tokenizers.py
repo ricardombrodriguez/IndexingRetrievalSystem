@@ -19,7 +19,7 @@ class Tokenizer:
         filtered_terms = {}
         for term in terms:                                                      # ABSTRACT.()awesome
             lower_term = term.lower()                                           # abstract.()awesome                                                      
-            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term)             # abstract   awesome
+            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term)               # abstract   awesome
             if lower_term != filtered_term:
                 for splitted_term in filtered_term.split(' '):                  # [abstract, awesome]
                     if splitted_term not in filtered_terms:
@@ -27,7 +27,7 @@ class Tokenizer:
                     else:
                         filtered_terms[splitted_term][pub_id] += 1              # acrescidos se já estiverem na publicação
             else:
-                if term != lower_term and filtered_term not in filtered_terms:     # ABSTRACT != abstract -> migrate ABSTRACT data to its lowercase version
+                if term != lower_term and filtered_term not in filtered_terms:  # ABSTRACT != abstract -> migrate ABSTRACT data to its lowercase version
                     filtered_terms[filtered_term] = terms[term]
                 elif term != lower_term and filtered_term in filtered_terms:
                     filtered_terms[filtered_term][pub_id] += terms[term][pub_id]
