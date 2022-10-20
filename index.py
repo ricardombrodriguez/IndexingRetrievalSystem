@@ -34,7 +34,7 @@ class SPIMIIndexer(Indexer):
                  **kwargs):
         # lets suppose that the SPIMIIindex uses the inverted index, so
         # it initializes this type of index
-        super().__init__(InvertedIndex(posting_threshold), **kwargs)
+        super().__init__(InvertedIndex(posting_threshold, token_threshold=token_threshold), **kwargs)
         self.posting_threshold = posting_threshold
         self.memory_threshold = memory_threshold if memory_threshold else 75
         self.token_threshold = token_threshold
@@ -68,12 +68,18 @@ class SPIMIIndexer(Indexer):
         self._index.write_to_disk(index_output_folder)
         self._index.clean_index()
 
+        n_temporary_files = len(self._index.filenames)
+
         # now we have to merge all the blocks
-        self._index.merge_blocks(index_output_folder)
+        index_size, n_tokens = self._index.merge_blocks(index_output_folder)
 
         toc = time()
 
-        print(f"Indexing finished in {strftime('%Hh%Mm%Ss', gmtime(toc-tic))}")
+        print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {n_tokens} tokens")
+
+        # store statistics
+        with open("stats.txt", "a") as f:
+            f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {index_size/(1<<20)} | {n_temporary_files} | {n_tokens}\n")
 
 class BaseIndex:
 
@@ -81,6 +87,7 @@ class BaseIndex:
         self.posting_list = {}
         self._posting_threshold = posting_threshold
         self.token_threshold = kwargs['token_threshold'] if 'token_threshold' in kwargs else 30000
+        print(self.token_threshold)
 
         self.block_counter = 0
 
@@ -156,6 +163,12 @@ class BaseIndex:
         # number of lines in a block
         block_lines = 0
 
+        # size of index in disk
+        index_size = 0
+
+        # n_tokens in index
+        n_tokens = 0
+
         while files_ended < len(files):
             
             # The lines are in the format "term doc_id:counter,doc_id:counter,doc_id:counter"
@@ -185,6 +198,7 @@ class BaseIndex:
                 if merge_line is not None:
                     final_block_file.write(merge_line.encode("utf-8"))
                     block_lines += 1
+                    n_tokens += 1
 
                     # We will update the first term if needed
                     if first_term is None:
@@ -203,8 +217,13 @@ class BaseIndex:
                         with open(f"{folder}/index.txt", "a") as index_file:
                             index_file.write(f"{first_term} {last_term} {folder}/final_block_{final_block_counter}.txt\n")
 
-                        # Close the actual block and create a new one
+                        # Close the actual block file
                         final_block_file.close()
+
+                        # Add the size of the block file to the index size
+                        index_size += os.path.getsize(f"{folder}/final_block_{final_block_counter}.txt")
+
+                        # Create a new block file
                         final_block_counter += 1
                         final_block_file = gzip.GzipFile(f"{folder}/final_block_{final_block_counter}.txt", "wb")
 
@@ -236,7 +255,13 @@ class BaseIndex:
         with open(f"{folder}/index.txt", "a") as index_file:
             index_file.write(f"{first_term} {merge_line.split(' ', 1)[0]} {folder}/final_block_{final_block_counter}.txt\n")
 
+        # Add the size of the index file to the index size
+        index_size += os.path.getsize(f"{folder}/index.txt")
+
         print(f"Block {final_block_counter} finished")
+
+        # Add the size of the block file to the index size
+        index_size += os.path.getsize(f"{folder}/final_block_{final_block_counter}.txt")
         
         print("Merge complete...")
 
@@ -244,6 +269,8 @@ class BaseIndex:
         # We will delete the temporary files
         for filename in self.filenames:
             os.remove(filename)
+
+        return index_size, n_tokens
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):
