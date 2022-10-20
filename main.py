@@ -147,6 +147,11 @@ if __name__ == "__main__":
                                     type=int, 
                                     default=None,
                                     help='Maximum limit of RAM that the program (index) should consume in %.')
+
+    indexer_settings_parser.add_argument('--indexer.token_threshold', 
+                                type=int, 
+                                default=None,
+                                help='Maximum number of tokens that each index should hold.')
         
     indexer_doc_parser = indexer_parser.add_argument_group('Indexer document processing settings', 'This settings are related to how the documents should be loaded and processed to tokens.')
     # corpus reader
