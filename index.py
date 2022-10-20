@@ -77,6 +77,11 @@ class SPIMIIndexer(Indexer):
 
         print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {n_tokens} tokens")
 
+        # check if stats file exists
+        if not os.path.exists("stats.txt"):
+            with open("stats.txt", "w") as f:
+                f.write("total_indexing_time | index_size_on_disk | n_temporary_files | vocabulary_size\n")
+
         # store statistics
         with open("stats.txt", "a") as f:
             f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {index_size/(1<<20)} | {n_temporary_files} | {n_tokens}\n")
@@ -87,7 +92,6 @@ class BaseIndex:
         self.posting_list = {}
         self._posting_threshold = posting_threshold
         self.token_threshold = kwargs['token_threshold'] if 'token_threshold' in kwargs else 30000
-        print(self.token_threshold)
 
         self.block_counter = 0
 
