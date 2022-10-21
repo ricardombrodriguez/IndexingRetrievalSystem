@@ -1,3 +1,9 @@
+"""
+Authors:
+Gonçalo Leal - 98008
+Ricardo Rodriguez - 98388
+"""
+
 import gzip
 import json
 import sys
@@ -50,33 +56,3 @@ class PubMedReader(Reader):
 
     def close_file(self):
         self.file.close()
-
-    # not going to be used -> read_next_pub() instead
-    def open_file(self):
-        terms = {}
-
-        time_i = time()
-        with gzip.open(self.path_to_collection, mode="rt") as file:
-            cursor = 0
-
-            while True:
-                cursor += 1
-            
-                # Get next line from file
-                line = file.readline()
-            
-                # if line is empty
-                # end of file is reached
-                if not line:
-                    break
-
-                pub_json = json.loads(line)
-                pub_terms = set(pub_json['title'].split() + pub_json['abstract'].split())
-
-                for term in pub_terms:
-                    if term not in terms:
-                        terms[term] = [pub_json['pmid']]
-                    else:
-                        terms[term] += [pub_json['pmid']]
-
-        return terms

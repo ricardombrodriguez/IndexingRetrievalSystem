@@ -1,3 +1,0 @@
-total_indexing_time | index_size_on_disk | n_temporary_files | vocabulary_size
-00:06:46 | 8.17426586151123 | 51 | 388222
-01:39:39 | 38.461055755615234 | 511 | 1883845
