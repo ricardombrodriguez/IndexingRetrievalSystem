@@ -74,16 +74,16 @@ These results were achieved running [./assignment1.sh](./assignment1.sh)
 
 On Gonçalo's pc:
 | File Size | Total Indexing Time | Index Size on Disk | Number of Temporary Files | Number of Terms | Index File Size |
-|---|:---:|---|:---:|:---:|---|
+|---|:---:|---|:---:|:---:|---:|
 | Tiny (134,4 MB) | 00:06:46 | 8.17426586151123 MB | 51 | 388222 | 750 bytes |
 | Small (1,4 GB) | 01:39:39 | 38.461055755615234 MB | 511 | 1883845 | 4.0 kb |
-| Medium (4,4 GB) | | | | | |
+| Medium (4,4 GB) | | | | | 9.2 kb |
 | Large (9,5 GB) | | | | | |
 
 On Ricardo'd pc:
-| File Size | Total Indexing Time | Index Size on Disk | Number of Temporary Files | Number of Terms |
-|---|:---:|---|:---:|:---:|
-| Tiny (134,4 MB) | 00:24:17 | 8.17426586151123 MB | 51 | 388222 |
-| Small (1,4 GB) | 02:15:42 | 38.461055755615234 MB | 511 | 1883845 |
-| Medium (4,4 GB) | 10:17:25 | 83.68341255187988 MB | 1657 | 4237009 |
-| Large (9,5 GB) | | | | |
+| File Size | Total Indexing Time | Index Size on Disk | Number of Temporary Files | Number of Terms | Index File Size |
+|---|:---:|---|:---:|:---:|---:|
+| Tiny (134,4 MB) | 00:24:17 | 8.17426586151123 MB | 51 | 388222 | 750 bytes |
+| Small (1,4 GB) | 02:15:42 | 38.461055755615234 MB | 511 | 1883845 | 4.0 bytes |
+| Medium (4,4 GB) | 10:17:25 | 83.68341255187988 MB | 1657 | 4237009 | 9.2 bytes |
+| Large (9,5 GB) | | | | | |
