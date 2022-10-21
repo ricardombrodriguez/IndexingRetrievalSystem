@@ -181,6 +181,8 @@ class BaseIndex:
         # n_tokens in index
         n_tokens = 0
 
+        tic = time()
+
         while files_ended < len(files):
             
             # The lines are in the format "term doc_id:counter,doc_id:counter,doc_id:counter"
@@ -281,8 +283,12 @@ class BaseIndex:
         # We will delete the temporary files
         for filename in self.filenames:
             os.remove(filename)
+        
+        toc = time()
 
-        return index_size, n_tokens
+        self.index_size = index_size
+        self.n_tokens = n_tokens
+        self.merging_time = toc - tic
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):

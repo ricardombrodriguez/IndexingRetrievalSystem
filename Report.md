@@ -24,7 +24,26 @@ After receiving the temporary index from the last read publication, the tokenize
 
 ### Indexing
 
+To improve the performance of the SPIMI indexer, it's important to store the current index in a temporary file when the memory, number of tokens or number of postings reach their limit, so that it can be cleaned and we can continue reading other publications and store it in memory. 
+
+The build_index() method is the main method of the *index.py* file, responsible for invoking the reader and tokenizer methods to get the publication terms and tokenize them, respectively. After that, all the publication tokens and their postings list are added to the Inverted Index data structure. In the InvertedIndex add_term() method, the term is only being added to the index if the number of tokens or postings are not exceeded. If that's the case, the in-memory index needs to be written to disk.
+
+The *write_to_disk()* function starts by sorting the index by its terms and each term and its postings list is written line by line in a temporary block file in a sorted way. The *block_counter* variable is responsible for giving each temporary index file a unique name, being incremented each time a new index needs to be written on disk.
+
+After this process, the index data structure can be clean so it can receive new terms and postings list from the next publications.
+
 ### Merging
+
+Our merging process was adapted from [External Sort](https://en.algorithmica.org/hpc/external-memory/sorting/). Since we had a list of temporary blocks writen in disk and already sorted individually it became easy to apply a Merge Sort algorithm to them. 
+
+We create a list of terms with all the first terms in each block. Then we choose the smallest one and write it (including posting list and counter) to a final block file. Everytime we write a term to the final block we read the next one from that temporary block until the file ends. Everytime the final block reaches the term threshold we close it and create a new one. 
+
+In order to keep track of every final block file and the terms writen in it we have an index file which contains:
+```
+file_path first_term last_term
+```
+
+This way we can easily find a postings list for a specific term. In the worst case we have to load the index file to disk, which is very light, and loop through its lines until we find the final block that contains the term we are looking for. However, this process would be much faster if we use any type of searching algorithm like binary search.
 
 ## Usage
 
@@ -53,9 +72,18 @@ We added:
 
 These results were achieved running [./assignment1.sh](./assignment1.sh)
 
+On Gonçalo's pc:
+| File Size | Total Indexing Time | Index Size on Disk | Number of Temporary Files | Number of Terms | Index File Size |
+|---|:---:|---|:---:|:---:|---|
+| Tiny (134,4 MB) | 00:06:46 | 8.17426586151123 MB | 51 | 388222 | 750 bytes |
+| Small (1,4 GB) | 01:39:39 | 38.461055755615234 MB | 511 | 1883845 | 4.0 kb |
+| Medium (4,4 GB) | | | | | |
+| Large (9,5 GB) | | | | | |
+
+On Ricardo'd pc:
 | File Size | Total Indexing Time | Index Size on Disk | Number of Temporary Files | Number of Terms |
-|---|---|---|---|---|
-| Tiny (134,4 MB) | 00:06:46 | 8.17426586151123 MB | 51 | 388222 |
-| Small (1,4 GB) | | | | |
-| Medium (4,4 GB) | | | | |
+|---|:---:|---|:---:|:---:|
+| Tiny (134,4 MB) | 00:24:17 | 8.17426586151123 MB | 51 | 388222 |
+| Small (1,4 GB) | 02:15:42 | 38.461055755615234 MB | 511 | 1883845 |
+| Medium (4,4 GB) | 10:17:25 | 83.68341255187988 MB | 1657 | 4237009 |
 | Large (9,5 GB) | | | | |
