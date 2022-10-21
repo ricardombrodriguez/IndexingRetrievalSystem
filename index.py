@@ -71,20 +71,20 @@ class SPIMIIndexer(Indexer):
         n_temporary_files = len(self._index.filenames)
 
         # now we have to merge all the blocks
-        index_size, n_tokens = self._index.merge_blocks(index_output_folder)
+        self._index.merge_blocks(index_output_folder)
 
         toc = time()
 
-        print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {n_tokens} tokens")
+        print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {self._index.n_tokens} tokens")
 
         # check if stats file exists
         if not os.path.exists("stats.txt"):
             with open("stats.txt", "w") as f:
-                f.write("total_indexing_time | index_size_on_disk | n_temporary_files | vocabulary_size\n")
+                f.write("total_indexing_time | merging_time | index_size_on_disk | n_temporary_files | vocabulary_size | index_file_size\n")
 
         # store statistics
         with open("stats.txt", "a") as f:
-            f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {index_size/(1<<20)} | {n_temporary_files} | {n_tokens}\n")
+            f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.merging_time} | {self._index.index_size/(1<<20)} MB | {os.path.getsize(f'{index_output_folder}/index.txt')/(1<<20)} MB | {n_temporary_files} | {self._index.n_tokens}\n")
 
 class BaseIndex:
 
@@ -134,6 +134,34 @@ class BaseIndex:
         f.close()
         self.block_counter += 1
 
+    @classmethod
+    def load_from_disk(cls, path_to_folder:str):
+        # cls is an argument that referes to the called class, use it for initialize your index
+        raise NotImplementedError()
+
+class InvertedIndex(BaseIndex):
+    # make an efficient implementation of an inverted index
+
+    def __init__(self, posting_threshold, **kwargs):
+        super().__init__(posting_threshold, **kwargs)
+    
+    def add_term(self, term, doc_id, *args, **kwargs):
+        # check if postings list size > postings_threshold
+        if (self._posting_threshold and len(self.posting_list) > self._posting_threshold) or (len(self.posting_list) > self.token_threshold):
+            if 'index_output_folder' not in kwargs: # or 'filename' not in kwargs:
+                raise ValueError("index_output_folder and filename are required in kwargs in order to store the index on disk")
+
+            self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
+            self.clean_index()
+
+        term_count = args[0]
+
+        # term: [doc_id1, doc_id2, doc_id3, ...]
+        if term not in self.posting_list:
+            self.posting_list[term] = { doc_id : term_count }
+        else:
+            self.posting_list[term][doc_id] = term_count
+
     def merge_blocks(self, folder):
         print("Merging blocks...")
     
@@ -172,6 +200,8 @@ class BaseIndex:
 
         # n_tokens in index
         n_tokens = 0
+
+        tic = time()
 
         while files_ended < len(files):
             
@@ -273,36 +303,12 @@ class BaseIndex:
         # We will delete the temporary files
         for filename in self.filenames:
             os.remove(filename)
+        
+        toc = time()
 
-        return index_size, n_tokens
-
-    @classmethod
-    def load_from_disk(cls, path_to_folder:str):
-        # cls is an argument that referes to the called class, use it for initialize your index
-        raise NotImplementedError()
-
-class InvertedIndex(BaseIndex):
-    # make an efficient implementation of an inverted index
-
-    def __init__(self, posting_threshold, **kwargs):
-        super().__init__(posting_threshold, **kwargs)
-    
-    def add_term(self, term, doc_id, *args, **kwargs):
-        # check if postings list size > postings_threshold
-        if (self._posting_threshold and len(self.posting_list) > self._posting_threshold) or (len(self.posting_list) > self.token_threshold):
-            if 'index_output_folder' not in kwargs: # or 'filename' not in kwargs:
-                raise ValueError("index_output_folder and filename are required in kwargs in order to store the index on disk")
-
-            self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
-            self.clean_index()
-
-        term_count = args[0]
-
-        # term: [doc_id1, doc_id2, doc_id3, ...]
-        if term not in self.posting_list:
-            self.posting_list[term] = { doc_id : term_count }
-        else:
-            self.posting_list[term][doc_id] = term_count
+        self.index_size = index_size
+        self.n_tokens = n_tokens
+        self.merging_time = toc - tic
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):
