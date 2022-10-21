@@ -43,7 +43,7 @@ In order to keep track of every final block file and the terms writen in it we h
 file_path first_term last_term
 ```
 
-This way we can easily find a postings list for a specific term. In the worst case we have to load 
+This way we can easily find a postings list for a specific term. In the worst case we have to load the index file to disk, which is very light, and loop through its lines until we find the final block that contains the term we are looking for. However, this process would be much faster if we use any type of searching algorithm like binary search.
 
 ## Usage
 
