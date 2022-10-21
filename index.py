@@ -78,20 +78,20 @@ class SPIMIIndexer(Indexer):
         n_temporary_files = len(self._index.filenames)
 
         # now we have to merge all the blocks
-        index_size, n_tokens = self._index.merge_blocks(index_output_folder)
+        self._index.merge_blocks(index_output_folder)
 
         toc = time()
 
-        print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {n_tokens} tokens")
+        print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {self._index.n_tokens} tokens")
 
         # check if stats file exists
         if not os.path.exists("stats.txt"):
             with open("stats.txt", "w") as f:
-                f.write("total_indexing_time | index_size_on_disk | n_temporary_files | vocabulary_size\n")
+                f.write("total_indexing_time | merging_time | index_size_on_disk | n_temporary_files | vocabulary_size | index_file_size\n")
 
         # store statistics
         with open("stats.txt", "a") as f:
-            f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {index_size/(1<<20)} | {n_temporary_files} | {n_tokens}\n")
+            f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.merging_time} | {self._index.index_size/(1<<20)} MB | {os.path.getsize(f'{index_output_folder}/index.txt')/(1<<20)} MB | {n_temporary_files} | {self._index.n_tokens}\n")
 
 class BaseIndex:
 
@@ -304,6 +304,10 @@ class InvertedIndex(BaseIndex):
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
         if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold) or (self.token_threshold and len(self.posting_list) > self.token_threshold):
+
+            # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
+            if 'index_output_folder' not in kwargs:
+                raise ValueError("index_output_folder is required in kwargs in order to store the index on disk")
 
             self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
             self.clean_index()
