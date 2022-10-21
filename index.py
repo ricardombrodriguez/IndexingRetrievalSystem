@@ -1,4 +1,11 @@
+"""
+Authors:
+Gonçalo Leal - 98008
+Ricardo Rodriguez - 98388
+"""
+
 from cgitb import small
+from operator import index
 from utils import dynamically_init_class
 import psutil
 from time import time, strftime, gmtime
@@ -36,8 +43,8 @@ class SPIMIIndexer(Indexer):
         # it initializes this type of index
         super().__init__(InvertedIndex(posting_threshold, token_threshold=token_threshold), **kwargs)
         self.posting_threshold = posting_threshold
-        self.memory_threshold = memory_threshold if memory_threshold else 75
-        self.token_threshold = token_threshold
+        self.memory_threshold = memory_threshold if memory_threshold else 50
+        self.token_threshold = token_threshold if token_threshold else 50000
 
         print("init SPIMIIndexer|", f"{posting_threshold=}, {memory_threshold=}")
 
@@ -91,7 +98,7 @@ class BaseIndex:
     def __init__(self, posting_threshold, **kwargs):
         self.posting_list = {}
         self._posting_threshold = posting_threshold
-        self.token_threshold = kwargs['token_threshold'] if 'token_threshold' in kwargs else 30000
+        self.token_threshold = kwargs['token_threshold'] if kwargs['token_threshold'] else 50000
 
         self.block_counter = 0
 
@@ -106,7 +113,7 @@ class BaseIndex:
 
             self.write_to_disk(kwargs['index_output_folder'])
             self.clean_index()
-
+        
         if doc_id not in self.posting_list:
             self.posting_list[doc_id] = [term]
         else:
@@ -120,16 +127,17 @@ class BaseIndex:
 
     # Apenas escreve o indice em disco de forma ordenada
     def write_to_disk(self, folder):
+
         if not os.path.exists(folder):
             os.makedirs(folder)
 
-        # First, we need to sort the index
-        sorted_index = sorted(self.posting_list.items(), key=lambda x: x[0])
+        # First, we need to sort the index by key
+        sorted_index = {k: self.posting_list[k] for k in sorted(self.posting_list)}
 
         # Then we write it to disk
         f = gzip.GzipFile(f"{folder}/block_{self.block_counter}.txt", "wb") # to read use the same line with rb
         self.filenames.append(f"{folder}/block_{self.block_counter}.txt")
-        for term, posting in sorted_index:
+        for term, posting in sorted_index.items():
             f.write(f"{term} {','.join([ str(el[0]) + ':' + str(el[1]) for el in posting])}\n".encode("utf-8"))
         f.close()
         self.block_counter += 1
@@ -289,20 +297,18 @@ class InvertedIndex(BaseIndex):
     
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
-        if (self._posting_threshold and len(self.posting_list) > self._posting_threshold) or (len(self.posting_list) > self.token_threshold):
-            if 'index_output_folder' not in kwargs: # or 'filename' not in kwargs:
-                raise ValueError("index_output_folder and filename are required in kwargs in order to store the index on disk")
+        if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold) or (self.token_threshold and len(self.posting_list) > self.token_threshold):
 
             self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
             self.clean_index()
 
-        term_count = args[0]
+
 
         # term: [doc_id1, doc_id2, doc_id3, ...]
         if term not in self.posting_list:
-            self.posting_list[term] = { doc_id : term_count }
+            self.posting_list[term] = { doc_id : args[0] }
         else:
-            self.posting_list[term][doc_id] = term_count
+            self.posting_list[term][doc_id] = args[0]
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):
