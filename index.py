@@ -43,7 +43,7 @@ class SPIMIIndexer(Indexer):
         # it initializes this type of index
         super().__init__(InvertedIndex(posting_threshold, token_threshold=token_threshold), **kwargs)
         self.posting_threshold = posting_threshold
-        self.memory_threshold = memory_threshold if memory_threshold else 50
+        self.memory_threshold = memory_threshold if memory_threshold else 75
         self.token_threshold = token_threshold if token_threshold else 50000
 
         print("init SPIMIIndexer|", f"{posting_threshold=}, {memory_threshold=}")
@@ -304,15 +304,13 @@ class InvertedIndex(BaseIndex):
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
         if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold) or (self.token_threshold and len(self.posting_list) > self.token_threshold):
-
+            
             # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
             if 'index_output_folder' not in kwargs:
                 raise ValueError("index_output_folder is required in kwargs in order to store the index on disk")
 
             self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
             self.clean_index()
-
-
 
         # term: [doc_id1, doc_id2, doc_id3, ...]
         if term not in self.posting_list:
