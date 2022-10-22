@@ -74,10 +74,10 @@ These results were achieved running [./assignment1.sh](./assignment1.sh)
 
 On Gonçalo's pc:
 | File Size | Total Indexing Time | Index Size on Disk | Number of Temporary Files | Number of Terms | Index File Size |
-|---|:---:|---|:---:|:---:|---|
+|---|:---:|---|:---:|:---:|---:|
 | Tiny (134,4 MB) | 00:06:46 | 8.17426586151123 MB | 51 | 388222 | 750 bytes |
 | Small (1,4 GB) | 01:39:39 | 38.461055755615234 MB | 511 | 1883845 | 4.0 kb |
-| Medium (4,4 GB) | | | | | |
+| Medium (4,4 GB) |10:11:58 | 83.68341255187988 MB | 1657 | 4237009 | 9.2 kb |
 | Large (9,5 GB) | | | | | |
 
 On Ricardo'd pc (tiny, small and medium ran in suspended mode - tiny usually takes 7 minutes normally):
