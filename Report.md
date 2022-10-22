@@ -80,10 +80,11 @@ On Gonçalo's pc:
 | Medium (4,4 GB) | | | | | |
 | Large (9,5 GB) | | | | | |
 
-On Ricardo'd pc:
+On Ricardo'd pc (tiny, small and medium ran in suspended mode - tiny usually takes 7 minutes normally):
 | File Size | Total Indexing Time | Index Size on Disk | Number of Temporary Files | Number of Terms |
 |---|:---:|---|:---:|:---:|
 | Tiny (134,4 MB) | 00:24:17 | 8.17426586151123 MB | 51 | 388222 |
 | Small (1,4 GB) | 02:15:42 | 38.461055755615234 MB | 511 | 1883845 |
 | Medium (4,4 GB) | 10:17:25 | 83.68341255187988 MB | 1657 | 4237009 |
-| Large (9,5 GB) | | | | |
+| Large (9,5 GB) | 20:50:45 | 169.94720077514648 MB | 2410 | 7872453 | 
+
