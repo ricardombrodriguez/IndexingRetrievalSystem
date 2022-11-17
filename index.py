@@ -195,7 +195,7 @@ class BaseIndex:
                 if (terms[smallest_term_index]) is None or (terms[i] is not None and terms[i] < terms[smallest_term_index]):
                     smallest_term_index = i 
 
-            # We won't write the line for now, because we may need to merge 
+            # We won't write the line for now, because we may need to merge
             # the posting list in this line with the posting list in the next line
 
             # If the merge_line's term and the smallest term are the same, we will merge them
@@ -210,7 +210,7 @@ class BaseIndex:
             # If the merge_line is not None, it means we have to write it to the block file
             if may_write:
                 if merge_line is not None:
-                    final_block_file.write(merge_line.encode("utf-8"))
+                    final_block_file.write(f"{merge_line}\n".encode("utf-8"))
                     block_lines += 1
                     n_tokens += 1
 
