@@ -56,10 +56,9 @@ class SPIMIIndexer(Indexer):
         while 1:
 
             pmid, pub_terms = reader.read_next_pub()         # read publication
-
             if pmid is None:                                # end of file
                 break
-
+            
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
             [self._index.add_term(token, doc_id, int(counter), index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, counter in data.items()] # add terms to index
@@ -145,150 +144,48 @@ class BaseIndex:
     def merge_blocks(self, folder):
         print("Merging blocks...")
     
-        # We will iterate over the files containing the blocks
-        # and we will merge them by reading the first line of each file
-        # and then we will compare them and append the smallest one 
-        # (alphabetically) to the final block files (after merging)
-        # and we will read the next line of the file that we appended
-        # we will do this until we reach the end of all the files
+        #open all block files at the same time and read the first line from them
+        block_files = [open(block_file, 'r', encoding='utf-8') for block_file in self.filenames]
+        lines = [block_file.readline()[:-1] for block_file in block_files]
+        most_recent_term = ""
 
-        files_ended = 0 # when this variable is equal to the number of files, it means we have already read all the files
-
-        # We will create a file object for each file
-        files = [gzip.GzipFile(filename, "rb") for filename in self.filenames]
-
-        # We will read the first line of each file
-        lines = [file.readline().decode("utf-8").strip() for file in files]
-
-        # We will initialize the variable which will hold the line until the merge is done
-        merge_line = None
-        may_write = False
-
-        # each time we create a new block, we will increment this variable
-        final_block_counter = 0
-        # We will create a file object for the final block file
-        final_block_file = gzip.GzipFile(f"{folder}/final_block_{final_block_counter}.txt", "wb")
-
-        # These variables will hold the first and last term in a block so we can use them to create the index file
-        first_term = None
-
-        # number of lines in a block
-        block_lines = 0
-
-        # size of index in disk
-        index_size = 0
-
-        # n_tokens in index
-        n_tokens = 0
-
-        tic = time()
-
-        while files_ended < len(files):
-            
-            # The lines are in the format "term doc_id:counter,doc_id:counter,doc_id:counter"
-            # We will split the lines by the space and we will get the term and the posting list
-            terms = [line.split(" ", 1)[0] if line else None for line in lines]
-
-            # We will get the index of the smallest term (which will be the index of the line that we will append to the block)
-            smallest_term_index = 0
-            for i in range(1, len(terms)):
-                if (terms[smallest_term_index]) is None or (terms[i] is not None and terms[i] < terms[smallest_term_index]):
-                    smallest_term_index = i 
-
-            # We won't write the line for now, because we may need to merge 
-            # the posting list in this line with the posting list in the next line
-
-            # If the merge_line's term and the smallest term are the same, we will merge them
-            # and we will keep without writing until the merge_line's term smallest term are different
-            # which means the posting list of the merge_line's term is finished
-            if merge_line is not None and merge_line.split(" ", 1)[0] == terms[smallest_term_index]:
-                merge_line = f"{merge_line.split(' ', 1)[0]} {merge_line.split(' ', 1)[1]},{lines[smallest_term_index].split(' ', 1)[1]}"
-                may_write = False
+        #remove empty blocks from list
+        i = 0
+        for b in block_files:
+            if lines[i] == "":
+                block_files.pop(i)
+                lines.pop(i)
             else:
-                may_write = True
+                i += 1
 
-            # If the merge_line is not None, it means we have to write it to the block file
-            if may_write:
-                if merge_line is not None:
-                    final_block_file.write(merge_line.encode("utf-8"))
-                    block_lines += 1
-                    n_tokens += 1
+        #fill the final index file
+        with open('final_index.txt', "w", encoding='utf-8') as output:
+            while len(block_files) > 0:
 
-                    # We will update the first term if needed
-                    if first_term is None:
-                        first_term = merge_line.split(" ", 1)[0]
+                min_index = lines.index(min(lines))
+                line = lines[min_index]
+                current_term = line.split()[0]
+                current_postings = " ".join(map(str, sorted(list(map(str, line.split()[1:])))))
 
-                    # We are building blocks of files and an index file
-                    # We will create a new block file when the number of lines in
-                    # the current block file is greater than the token_threshold
-                    if block_lines >= self.token_threshold:
-                        last_term = merge_line.split(' ', 1)[0]
+                if current_term != most_recent_term:
+                    output.write("\n%s %s" % (current_term, current_postings))
+                    most_recent_term = current_term
+                else:
+                    output.write(" %s" % current_postings)
 
-                        print(f"Block {final_block_counter} finished | first_term={first_term} and last_term={last_term}", end="\r")
+                lines[min_index] = block_files[min_index].readline()[:-1]
 
-                        # We have to update the index file
-                        # We will write the first and last term of the block and the block's filename
-                        with open(f"{folder}/index.txt", "a") as index_file:
-                            index_file.write(f"{first_term} {last_term} {folder}/final_block_{final_block_counter}.txt\n")
+                if lines[min_index] == "":
+                    block_files[min_index].close()
+                    block_files.pop(min_index)
+                    lines.pop(min_index)
 
-                        # Close the actual block file
-                        final_block_file.close()
+            output.close()
 
-                        # Add the size of the block file to the index size
-                        index_size += os.path.getsize(f"{folder}/final_block_{final_block_counter}.txt")
+        #clean all temporary index files
+        [os.remove(block_file) for block_file in self.filenames]
 
-                        # Create a new block file
-                        final_block_counter += 1
-                        final_block_file = gzip.GzipFile(f"{folder}/final_block_{final_block_counter}.txt", "wb")
-
-                        # We need to reset the variables
-                        first_term = None
-                        block_lines = 0
-
-                # The line we need to merge is now the actual smallest line
-                merge_line = lines[smallest_term_index]
-                may_write = False
-
-            # We will read the next line of the file that we appended
-            next_line = files[smallest_term_index].readline().decode("utf-8").strip()
-
-            # If the next line is empty, it means that we have reached the end of the file
-            # so we will close the file and we will increment the files_ended variable
-            if next_line == None or next_line == "":
-                files[smallest_term_index].close()
-                files_ended += 1
-                lines[smallest_term_index] = None
-            else:
-                lines[smallest_term_index] = next_line
-        
-        # Now we have to close the last block file
-        final_block_file.close()
-
-        # We have to update the index file
-        # We will write the first and last term of the block and the block's filename
-        with open(f"{folder}/index.txt", "a") as index_file:
-            index_file.write(f"{first_term} {merge_line.split(' ', 1)[0]} {folder}/final_block_{final_block_counter}.txt\n")
-
-        # Add the size of the index file to the index size
-        index_size += os.path.getsize(f"{folder}/index.txt")
-
-        print(f"Block {final_block_counter} finished")
-
-        # Add the size of the block file to the index size
-        index_size += os.path.getsize(f"{folder}/final_block_{final_block_counter}.txt")
-        
-        print("Merge complete...")
-
-        print("Deleting temporary files...")
-        # We will delete the temporary files
-        for filename in self.filenames:
-            os.remove(filename)
-        
-        toc = time()
-
-        self.index_size = index_size
-        self.n_tokens = n_tokens
-        self.merging_time = toc - tic
+        return True
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):
@@ -303,7 +200,7 @@ class InvertedIndex(BaseIndex):
     
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
-        if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold) or (self.token_threshold and len(self.posting_list) > self.token_threshold):
+        if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold):
             
             # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
             if 'index_output_folder' not in kwargs:

@@ -37,19 +37,11 @@ class PubMedReader(Reader):
         if not line:
             return None, None # fim do ficheiro
 
-        terms = {}
-        
         pub_json = json.loads(line)
         pub_terms = pub_json['title'].split() + pub_json['abstract'].split()
         pmid = pub_json['pmid']
 
-        for term in pub_terms:
-            if term not in terms:
-                terms[term] = { pmid:1 }        # new term in the publication
-            else:
-                terms[term][pmid] += 1          # repeated term in the publication
-
-        return pmid, terms            # key -> term | value -> { pmid : count }
+        return pmid, pub_terms            # key -> term | value -> { pmid : count }
 
     def extract_file(self):
         self.file = gzip.open(self.path_to_collection, mode="rt")
