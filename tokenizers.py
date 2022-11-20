@@ -8,7 +8,6 @@ from utils import dynamically_init_class
 import nltk
 import re
 from os.path import exists
-from math import log10
 
 def dynamically_init_tokenizer(**kwargs):
     return dynamically_init_class(__name__, **kwargs)
@@ -46,11 +45,6 @@ class Tokenizer:
                     tokens[stem_t] = { pub_id : 1 }
                 else:
                     tokens[stem_t][pub_id] += 1
-
-        # Calculate logarithm of term frequency
-        for t in tokens:
-            term_frequency = tokens[t][pub_id]
-            tokens[t][pub_id] = 1 + log10(term_frequency)
 
         return tokens
 

@@ -9,7 +9,7 @@ from operator import index
 from utils import dynamically_init_class
 import psutil
 from time import time, strftime, gmtime
-import math
+from math import log10
 import gzip
 import os
 
@@ -45,25 +45,53 @@ class SPIMIIndexer(Indexer):
         self.posting_threshold = posting_threshold
         self.memory_threshold = memory_threshold if memory_threshold else 75
         self.token_threshold = token_threshold if token_threshold else 50000
+        self.weight_method = None
+        self.kwargs = kwargs
 
         print("init SPIMIIndexer|", f"{posting_threshold=}, {memory_threshold=}")
-        print("-----------ai.............")
-        print(kwargs)
 
-        
+        if kwargs["tfidf"]["cache_in_disk"]:
+            self.weight_method = 'tfidf'
+            self.smart = kwargs["tfidf"]["smart"]
+            print(f"Using tfidf - {self.smart}")
+        elif kwargs["bm25"]["cache_in_disk"]:
+            self.weight_method = 'bm25'
+            self.bm25_k1 = kwargs["bm25"]["k1"]
+            self.bm25_b = kwargs["bm25"]["b"]
+            print(f"Using bm25 - k1 = {self.bm25_k1}; b = {self.bm25_b}")
+
     def build_index(self, reader, tokenizer, index_output_folder):
         print("Indexing some documents...")
 
         tic = time()
+        n_documents = 0
         while 1:
 
             pmid, pub_terms = reader.read_next_pub()         # read publication
             if pmid is None:                                # end of file
                 break
-            
+
+            n_documents += 1
+
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
-            [self._index.add_term(token, doc_id, int(counter), index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, counter in data.items()] # add terms to index
+            if self.weight_method == 'tfidf':
+                if self.smart[0] == 'l':
+                    # Calculate logarithm of term frequency
+                    for token in tokens:
+                        term_frequency = tokens[token][pmid]
+                        tokens[token][pmid] = 1 + log10(term_frequency)
+                elif self.smart[0] == 'a':
+                    # Calculate augmented
+                    raise NotImplementedError
+                elif self.smart[0] == 'b':
+                    # Calculate boolean
+                    raise NotImplementedError
+                elif self.smart[0] == 'L':
+                    # Calculate log ave
+                    raise NotImplementedError
+
+            [self._index.add_term(token, doc_id, counter, index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, counter in data.items()] # add terms to index
 
             pub_terms = {}
 
@@ -79,7 +107,7 @@ class SPIMIIndexer(Indexer):
         n_temporary_files = len(self._index.filenames)
 
         # now we have to merge all the blocks
-        self._index.merge_blocks(index_output_folder)
+        self._index.merge_blocks(index_output_folder, n_documents=n_documents, weight_method=self.weight_method, kwargs=self.kwargs)
 
         toc = time()
 
@@ -104,6 +132,10 @@ class BaseIndex:
         self.block_counter = 0
 
         self.filenames = []
+
+        self.index_size = 0
+        self.n_tokens = 0
+        self.merging_time = 0
     
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
@@ -121,10 +153,42 @@ class BaseIndex:
             self.posting_list[doc_id].append(term)
     
     def print_statistics(self):
-        raise NotImplementedError()
+        print(f"{self.index_size/(1<<20)}mb occupied in disk | {self.n_tokens} tokens | merge took {self.merging_time} seconds")
 
     def clean_index(self):
         self.posting_list = {}
+
+    # Apenas escreve o indice em disco de forma ordenada
+    def write_to_disk(self, folder):
+        pass
+
+    @classmethod
+    def load_from_disk(cls, path_to_folder:str):
+        # cls is an argument that referes to the called class, use it for initialize your index
+        raise NotImplementedError()
+
+class InvertedIndex(BaseIndex):
+    # make an efficient implementation of an inverted index
+
+    def __init__(self, posting_threshold, **kwargs):
+        super().__init__(posting_threshold, **kwargs)
+    
+    def add_term(self, term, doc_id, *args, **kwargs):
+        # check if postings list size > postings_threshold
+        if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold):
+            
+            # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
+            if 'index_output_folder' not in kwargs:
+                raise ValueError("index_output_folder is required in kwargs in order to store the index on disk")
+
+            self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
+            self.clean_index()
+
+        # term: [doc_id1, doc_id2, doc_id3, ...]
+        if term not in self.posting_list:
+            self.posting_list[term] = { doc_id : args[0] }
+        else:
+            self.posting_list[term][doc_id] = args[0]
 
     # Apenas escreve o indice em disco de forma ordenada
     def write_to_disk(self, folder):
@@ -139,12 +203,11 @@ class BaseIndex:
         f = gzip.GzipFile(f"{folder}/block_{self.block_counter}.txt", "wb") # to read use the same line with rb
         self.filenames.append(f"{folder}/block_{self.block_counter}.txt")
         for term, posting in sorted_index.items():
-            f.write(f"{term} {','.join([ str(el[0]) + ':' + str(el[1]) for el in posting])}\n".encode("utf-8"))
+            f.write(f"{term} {','.join([ str(pmid) + ':' + str(tf) for pmid, tf in posting.items()])}\n".encode("utf-8"))
         f.close()
         self.block_counter += 1
 
-    
-    def merge_blocks(self, folder):
+    def merge_blocks(self, folder, n_documents, weight_method, kwargs):
         print("Merging blocks...")
     
         # We will iterate over the files containing the blocks
@@ -185,6 +248,14 @@ class BaseIndex:
 
         tic = time()
 
+        func = None
+        if weight_method == "tfidf":
+            if kwargs["tfidf"]["smart"][1] == 't':
+                func = lambda df: log10(n_documents/df)
+            elif kwargs["tfidf"]["smart"][1] == 'p':
+                # Calculate augmented
+                raise NotImplementedError
+
         while files_ended < len(files):
             
             # The lines are in the format "term doc_id:counter,doc_id:counter,doc_id:counter"
@@ -212,6 +283,17 @@ class BaseIndex:
             # If the merge_line is not None, it means we have to write it to the block file
             if may_write:
                 if merge_line is not None:
+                    # if func is none at this point, then we may assume that the document frequency chosen is the no (n) one
+                    if func is not None:
+                        # merge_line is "<term> <doc1>:<term_frequency>,<doc2>:<term_frequency>,<doc3>:<term_frequency>,"
+                        # we want tfidf, so we have to multiply tf with idf
+                        posting_list = ""
+                        idf = func(len(merge_line.split(" ", 1)[1].split(",")))
+                        for posting in merge_line.split(" ", 1)[1].split(","):
+                            posting_list += f"{posting.split(':', 1)[0]}:{float(posting.split(':', 1)[1]) * idf},"
+
+                        merge_line = f"{merge_line.split(' ', 1)[0]} {posting_list}"
+
                     final_block_file.write(f"{merge_line}\n".encode("utf-8"))
                     block_lines += 1
                     n_tokens += 1
@@ -294,40 +376,8 @@ class BaseIndex:
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):
-        # cls is an argument that referes to the called class, use it for initialize your index
-        raise NotImplementedError()
-
-class InvertedIndex(BaseIndex):
-    # make an efficient implementation of an inverted index
-
-    def __init__(self, posting_threshold, **kwargs):
-        super().__init__(posting_threshold, **kwargs)
-    
-    def add_term(self, term, doc_id, *args, **kwargs):
-        # check if postings list size > postings_threshold
-        if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold):
-            
-            # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
-            if 'index_output_folder' not in kwargs:
-                raise ValueError("index_output_folder is required in kwargs in order to store the index on disk")
-
-            self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
-            self.clean_index()
-
-        # term: [doc_id1, doc_id2, doc_id3, ...]
-        if term not in self.posting_list:
-            self.posting_list[term] = { doc_id : args[0] }
-        else:
-            self.posting_list[term][doc_id] = args[0]
-
-    @classmethod
-    def load_from_disk(cls, path_to_folder:str):
         raise NotImplementedError()
         # index = cls(posting_threshold, **kwargs)
         # index.posting_list = ... Adicionar os postings do ficheiro
-        # esta classe tem de retornar um InvertedIndex
-    
-    def print_statistics(self):
-        print("Print some stats about this index.. This should be implemented by the base classes")
-    
+        # esta classe tem de retornar um InvertedIndex    
     
