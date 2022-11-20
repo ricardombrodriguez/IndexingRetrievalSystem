@@ -1,7 +1,7 @@
 from utils import dynamically_init_class
 from heapq import nlargest
 from math import log10, sqrt
-
+import re
 
 def dynamically_init_searcher(**kwargs):
     """Dynamically initializes a Tokenizer object from this
@@ -40,9 +40,25 @@ class BaseSearcher:
     def get_token_postings_list(self, token):
         pass
 
-    def normalise_token(self, token):
+    def normalise_token(self, term):
+                                               
+        lower_term = term.lower()                                                                                                
+        filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')              # remove all non alphanumeric characters for the exception of the hiphens (removed at the beginning)
 
-        pass
+        filtered_terms = [ filtered_term ]
+
+        if lower_term != filtered_term:
+            for splitted_term in filtered_term.split(' '):   
+                filtered_terms.append(splitted_term)
+
+        tokens = []
+        for t in filtered_terms:
+            if t not in self.stopwords:
+                stem_t = self.stemmer_obj.stem(t) if self.stemmer else t
+                tokens.append(stem_t)
+
+        return tokens
+
 
 class TFIDFRanking(BaseSearcher):
 
@@ -55,8 +71,8 @@ class TFIDFRanking(BaseSearcher):
 
     def search(self, index, query_tokens, top_k):
 
-        tokens = [ normalise_term(token) for token in query_tokens ]
-        query_matrix = { token : 1 + log10(tokens.count(token)) for token in tokens }
+        tokens = [t for token in query_tokens for t in self.normalise_token(token) ]    # filter query terms    
+        query_matrix = { token : 1 + log10(tokens.count(token)) for token in tokens }   # query term frequency
         
         weights = dict()
 
