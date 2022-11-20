@@ -32,7 +32,7 @@ class Tokenizer:
                 continue
 
             if lower_term != filtered_term:
-                for splitted_term in filtered_term.split(' '):                  
+                for splitted_term in filtered_term.split(' '):   
                     filtered_terms.append(splitted_term)
             else:
                 filtered_terms.append(filtered_term)
