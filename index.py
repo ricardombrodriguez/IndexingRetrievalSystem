@@ -58,10 +58,9 @@ class SPIMIIndexer(Indexer):
         while 1:
 
             pmid, pub_terms = reader.read_next_pub()         # read publication
-
             if pmid is None:                                # end of file
                 break
-
+            
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
             [self._index.add_term(token, doc_id, int(counter), index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, counter in data.items()] # add terms to index
@@ -144,6 +143,7 @@ class BaseIndex:
         f.close()
         self.block_counter += 1
 
+    
     def merge_blocks(self, folder):
         print("Merging blocks...")
     
@@ -305,7 +305,7 @@ class InvertedIndex(BaseIndex):
     
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
-        if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold) or (self.token_threshold and len(self.posting_list) > self.token_threshold):
+        if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold):
             
             # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
             if 'index_output_folder' not in kwargs:
