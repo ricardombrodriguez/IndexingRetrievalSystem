@@ -1,6 +1,18 @@
+"""
+Base template created by: Tiago Almeida & Sérgio Matos
+Authors: 
+
+Core functionality of the system, its the
+main system entry point and holds the top-level
+logic. It starts by spliting the execution path 
+based on the operation mode.
+
+"""
+
 from tokenizers import dynamically_init_tokenizer
 from reader import dynamically_init_reader
-from index import dynamically_init_indexer
+from index import dynamically_init_indexer, BaseIndex
+from searcher import dynamically_init_searcher
 
 def add_more_options_to_indexer(indexer_parser, indexer_settings_parser, indexer_doc_parser):
     """Add more options to the main program argparser.
@@ -25,7 +37,6 @@ def add_more_options_to_indexer(indexer_parser, indexer_settings_parser, indexer
         processing class.
 
     """
-    # Studends can implement if needed of additional argparse options
     pass
 
 def engine_logic(args):
@@ -54,6 +65,8 @@ def engine_logic(args):
                       args.tk)
         
     elif args.mode == "searcher":
+        ## TO BE DONE
+        # searcher_logic [This will be probably the name of the function still in revision]
         searcher_logic(args.index_folder,
                        args.path_to_questions,
                        args.output_file,
@@ -61,7 +74,6 @@ def engine_logic(args):
                        args.reader,
                        args.tk,
                        args.ranking)
-        
         
     else:
         # this should be ensured by the argparser
@@ -107,6 +119,8 @@ def indexer_logic(path_to_collection,
     # print some statistics about the produced index
     index.print_statistics()
     
+    
+    
 def searcher_logic(index_folder,
                    path_to_questions,
                    output_file,
@@ -139,5 +153,3 @@ def searcher_logic(index_folder,
     tokenizer = dynamically_init_tokenizer(**tk_kwargs)
 
     ranker.batch_search(index, reader, tokenizer, output_file, top_k=top_k)
-    
-

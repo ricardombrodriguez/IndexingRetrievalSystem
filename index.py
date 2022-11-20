@@ -34,10 +34,10 @@ class Indexer:
 
 class SPIMIIndexer(Indexer):
     
-    def __init__(self, 
-                 posting_threshold, 
+    def __init__(self,
+                 posting_threshold,
                  memory_threshold,
-                 token_threshold, 
+                 token_threshold,
                  **kwargs):
         # lets suppose that the SPIMIIindex uses the inverted index, so
         # it initializes this type of index
@@ -47,6 +47,8 @@ class SPIMIIndexer(Indexer):
         self.token_threshold = token_threshold if token_threshold else 50000
 
         print("init SPIMIIndexer|", f"{posting_threshold=}, {memory_threshold=}")
+        print("-----------ai.............")
+        print(kwargs)
 
         
     def build_index(self, reader, tokenizer, index_output_folder):

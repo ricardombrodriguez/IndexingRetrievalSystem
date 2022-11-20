@@ -96,15 +96,15 @@ class Params:
         kwargs = self.get_kwargs()
         # remove the arguments that were not specified on the terminal
         return { k:v for k,v in kwargs.items() if k in cli_recorder}
-        
+
+
 def shared_reader(parser, default_value=None):
     # this functions is for code reusability 
     parser.add_argument('--reader.class', 
                         type=str, 
                         default=default_value,
                         help=f'Type of reader to be used to process the input data. (default={default_value}).')
-                        
-                  
+
 class Singleton(type):
     """
     Python cookbook
@@ -198,10 +198,12 @@ def grouping_args(args):
     keys = set(namespace_dict.keys())
     for x in keys:
         if "." in x:
-            group_name, param_name = x.split(".")
+            group_name, *param_name = x.split(".")
             if group_name not in namespace_dict:
                 namespace_dict[group_name] = Params()
+            
             namespace_dict[group_name].add_parameter(param_name, namespace_dict[x])
+            
             del namespace_dict[x]
     
     return args
@@ -250,7 +252,7 @@ if __name__ == "__main__":
                                 type=int, 
                                 default=None,
                                 help='Maximum number of tokens that each index should hold.')
-                                
+
     indexer_settings_parser.add_argument('--indexer.bm25.cache_in_disk', 
                                     action="store_true",
                                     help='The index will cache all intermediate values in order to speed up the BM25 computations.')
@@ -271,8 +273,10 @@ if __name__ == "__main__":
                                     type=str,
                                     default="lnc.ltc",
                                     help='The smart notation to be used if --indexer.tfidf.cache_in_disk is enabled.')
+    
         
     indexer_doc_parser = indexer_parser.add_argument_group('Indexer document processing settings', 'This settings are related to how the documents should be loaded and processed to tokens.')
+    
     # corpus reader
     shared_reader(indexer_doc_parser, "PubMedReader")
     
@@ -302,7 +306,7 @@ if __name__ == "__main__":
                                 type=int,
                                 default=1000,
                                 help='Number maximum of documents that should be returned per question.')
-                                
+
     # Searcher also specifies a reader
     # question reader
     shared_reader(searcher_parser, "QuestionsReader")
@@ -322,9 +326,8 @@ if __name__ == "__main__":
     tfidf_mode_parser = searcher_modes_parser.add_parser('ranking.tfidf', help='Uses the TFIDF as the searching method')
     tfidf_mode_parser.add_argument("--ranking.tfidf.class", type=str, default="TFIDFRanking")
     tfidf_mode_parser.add_argument("--ranking.tfidf.smart", type=str, default="lnc.ltc")
-    
     # CLI parsing
-    
+    #args = parser.parse_args()
     args = grouping_args(parser.parse_args())
-    
+
     engine_logic(args)

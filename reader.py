@@ -16,7 +16,16 @@ def dynamically_init_reader(**kwargs):
 
 
 class Reader:
+    """
+    Top-level Reader class
     
+    This loosly defines a class over the concept of 
+    a reader.
+    
+    Since there are multiple ways for implementing
+    this class, we did not defined any specific method 
+    in this started code.
+    """
     def __init__(self, 
                  path_to_collection:str, 
                  **kwargs):
@@ -26,9 +35,14 @@ class Reader:
     
 class PubMedReader(Reader):
     
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        print("init PubMedReader|", f"{self.path_to_collection=}", )
+    def __init__(self, 
+                 path_to_collection:str,
+                 **kwargs):
+        super().__init__(path_to_collection, **kwargs)
+        print("init PubMedReader|", f"{self.path_to_collection=}")
+        if kwargs:
+            print(f"{self.__class__.__name__} also caught the following additional arguments {kwargs}")
+
         self.extract_file()
 
     def read_next_pub(self):
