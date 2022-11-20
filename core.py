@@ -54,8 +54,13 @@ def engine_logic(args):
                       args.tk)
         
     elif args.mode == "searcher":
-        ## TO BE DONE
-        pass
+        searcher_logic(args.index_folder,
+                       args.path_to_questions,
+                       args.output_file,
+                       args.top_k,
+                       args.reader,
+                       args.tk,
+                       args.ranking)
         
         
     else:
@@ -102,7 +107,37 @@ def indexer_logic(path_to_collection,
     # print some statistics about the produced index
     index.print_statistics()
     
+def searcher_logic(index_folder,
+                   path_to_questions,
+                   output_file,
+                   top_k,
+                   reader_args,
+                   tk_args,
+                   ranking_args):
+
+
+    reader = dynamically_init_reader(path_to_questions=path_to_questions,
+                                    **reader_args.get_kwargs())
     
     
+
+    ranker = dynamically_init_searcher(**ranking_args.get_kwargs())
+
+    # load the index from disk
+    index = BaseIndex.load_from_disk(index_folder)
+
+    stored_tokenizer_kwargs = index.get_tokenizer_kwargs()
+    if stored_tokenizer_kwargs:
+        # if new tk parameters are specified we override the arguments loaded from the index
+        # this enables initialize a tokenizer that differs from the one used during indexation
+        stored_tokenizer_kwargs.update(tk_args.get_kwargs_without_defaults())
+        tk_kwargs = stored_tokenizer_kwargs
+    else:
+        # the tokenizer was not saved in the index so lets use the one defined in the CLI (and use the default values if not defined)
+        tk_kwargs = tk_args.get_kwargs()
+
+    tokenizer = dynamically_init_tokenizer(**tk_kwargs)
+
+    ranker.batch_search(index, reader, tokenizer, output_file, top_k=top_k)
     
 
