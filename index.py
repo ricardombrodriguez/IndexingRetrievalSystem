@@ -63,7 +63,7 @@ class SPIMIIndexer(Indexer):
             
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
-            [self._index.add_term(token, doc_id, int(counter), index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, counter in data.items()] # add terms to index
+            [self._index.add_term(token, doc_id, log_tf, index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, log_tf in data.items()] # add terms to index
 
             pub_terms = {}
 
@@ -114,7 +114,7 @@ class BaseIndex:
 
             self.write_to_disk(kwargs['index_output_folder'])
             self.clean_index()
-        
+
         if doc_id not in self.posting_list:
             self.posting_list[doc_id] = [term]
         else:

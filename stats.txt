@@ -1,0 +1,2 @@
+total_indexing_time | merging_time | index_size_on_disk | n_temporary_files | vocabulary_size | index_file_size
+00:12:04 | 16.11432409286499 | 8.82518196105957 MB | 0.5538673400878906 MB | 1 | 388255

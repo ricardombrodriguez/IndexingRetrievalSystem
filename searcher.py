@@ -1,4 +1,6 @@
 from utils import dynamically_init_class
+from heapq import nlargest
+from math import log10, sqrt
 
 
 def dynamically_init_searcher(**kwargs):
@@ -29,11 +31,18 @@ class BaseSearcher:
         print("searching...")
         # loop that reads the questions
 
-            # aplies the tokenization to get the query_tokens
+        # aplies the tokenization to get the query_tokens
         query_tokens = []
         results = self.search(index, query_tokens, top_k)
 
         # write results to disk
+
+    def get_token_postings_list(self, token):
+        pass
+
+    def normalise_token(self, token):
+
+        pass
 
 class TFIDFRanking(BaseSearcher):
 
@@ -45,8 +54,37 @@ class TFIDFRanking(BaseSearcher):
             print(f"{self.__class__.__name__} also caught the following additional arguments {kwargs}")
 
     def search(self, index, query_tokens, top_k):
-        # index must be compatible with tfidf
-        pass
+
+        tokens = [ normalise_term(token) for token in query_tokens ]
+        query_matrix = { token : 1 + log10(tokens.count(token)) for token in tokens }
+        
+        weights = dict()
+
+        for token in query_matrix:
+
+            token_idf, postings_list = self.get_token_postings_list(token)
+            if not postings_list:       # no token
+                continue
+
+            query_weight = query_matrix[token] *  token_idf
+
+            for pmid, pub_weight in postings_list.items():
+                token_score = query_weight * pub_weight
+                
+                try:
+                    weights[pmid] += token_score
+                except KeyError:
+                    weights[pmid] = token_score
+
+        query_length = sqrt( sum([score**2 for score in weights ]) )
+
+        for pmid in weights:
+            weights[pmid] /= query_length
+
+        top_pubs = nlargest(top_k, weights, key = lambda score: (weights[score], -score))   # reversed sort min-heap
+
+        return top_pubs
+
 
 
 class BM25Ranking(BaseSearcher):
