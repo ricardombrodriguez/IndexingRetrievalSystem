@@ -47,7 +47,7 @@ class Tokenizer:
                 else:
                     tokens[stem_t][pub_id] += 1
 
-        return tokens
+        return tokens, self.stemmer
 
     def get_stemmer(self, stemmer_name):
         # This function is used to get the stemmer object
@@ -83,8 +83,8 @@ class PubMedTokenizer(Tokenizer):
             self.stopwords = [word.strip() for word in stopwords_file.readlines()]
             stopwords_file.close()
         elif self.stopwords_path and not exists(self.stopwords_path): 
-            raise FileNotFoundError(f"Stopwords file not found: {self.stopwords_path}")  
+            raise FileNotFoundError(f"Stopwords file not found: {self.stopwords_path}")
 
         #Stemmer
-        self.stemmer_obj = self.get_stemmer(self.stemmer)  
+        self.stemmer_obj = self.get_stemmer(self.stemmer)
         
