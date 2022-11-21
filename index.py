@@ -395,6 +395,13 @@ class InvertedIndexSearcher(BaseIndex):
         super().__init__(posting_threshold, **{'token_threshold': None})
         self.path_to_folder = path_to_folder
         self.index = self.read_index_file()
+        # read metadata
+
+    def read_index_metadata(self):
+        """
+        This function will read the file's metadata
+        """
+        return
 
     def read_index_file(self):
         """
@@ -433,11 +440,9 @@ class InvertedIndexSearcher(BaseIndex):
         If it doesn't exist the function returns None
 
         This function uses Binary Search to find the token in the index
-        and then searches in the block file until it find the token
+        and then searches in the block file until it finds the token
         """
-        # em vez de ler linha a linha do ficheiro block podíamos começar pelo 
-        # fim ou pela linha do meio, mas para já isso é muito complexo e 
+        # em vez de ler linha a linha do ficheiro block podíamos começar pelo
+        # fim ou pela linha do meio, mas para já isso é muito complexo e
         # temos coisas mais importantes a fazer
-
-
-        pass
+        return
