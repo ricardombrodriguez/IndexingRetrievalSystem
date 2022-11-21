@@ -198,6 +198,7 @@ class InvertedIndex(BaseIndex):
         super().__init__(posting_threshold, **kwargs)
 
     def add_term(self, term, doc_id, *args, **kwargs):
+
         # check if postings list size > postings_threshold
         if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold or (self.token_threshold and len(self.posting_list) > self.token_threshold)):
             
@@ -281,6 +282,7 @@ class InvertedIndex(BaseIndex):
                 raise NotImplementedError
 
         recent_term = None
+        recent_postings = None
 
         current_term = None
 
@@ -297,23 +299,41 @@ class InvertedIndex(BaseIndex):
 
             if current_term != recent_term:
 
+                # if func is none at this point, then we may assume that the document frequency chosen is the no (n) one
+                posting_list = ""
+                if func is not None:
+                    # merge_line is "<term> <doc1>:<term_frequency>,<doc2>:<term_frequency>,<doc3>:<term_frequency>,"
+                    # we want tfidf, so we have to multiply tf with idf
+                    idf = func(len(recent_postings.split(",")))
+                    for posting in recent_postings.split(","):
+                        posting_list += f"{posting.split(':', 1)[0]}:{float(posting.split(':', 1)[1]) * idf},"
+
+                # If fun -> store term weight for each pub; Else -> Write postings list
+                if func:
+                    final_block_file.write(f"\n{recent_term} {posting_list}".encode('utf-8'))
+                else:
+                    final_block_file.write(f"\n{recent_term} {recent_postings}".encode('utf-8'))
+
+                block_lines += 1
+                n_tokens += 1
+
                 # We are building blocks of files and an index file
                 # We will create a new block file when the number of lines in
                 # the current block file is greater than the token_threshold
-                if block_lines >= self.token_threshold - 1:
 
-                    print(f"Block {final_block_counter} finished | \
-                        first_term={first_term} and recent_term={current_term}", end="\r")
+                if block_lines >= self.token_threshold:
+                
+                    print(f"Block {final_block_counter} finished | first_term={first_term} and recent_term={recent_term}", end="\r")
 
-                    # IMPLEMENTAR IDF
-                    final_block_file.write(f"\n{current_term} {current_postings}".encode('utf-8'))
-                    recent_term = current_term
+                    if func:
+                        final_block_file.write(f"\n{recent_term} {posting_list}".encode('utf-8'))
+                    else:
+                        final_block_file.write(f"\n{recent_term} {recent_postings}".encode('utf-8'))
 
                     # We have to update the index file
                     # We will write the first and last term of the block and the block's filename
                     with open(f"{folder}/index.txt", "a") as index_file:
-                        index_file.write(f"{first_term} {current_term} \
-                            {folder}/final_block_{final_block_counter}.txt\n")
+                        index_file.write(f"{first_term} {recent_term} {folder}/final_block_{final_block_counter}.txt\n")
 
                     # Close the actual block file
                     final_block_file.close()
@@ -331,15 +351,13 @@ class InvertedIndex(BaseIndex):
                     first_term = None
                     block_lines = 0
 
-                else:
-
-                    final_block_file.write(f"\n{current_term} {current_postings}".encode('utf-8'))
-                    recent_term = current_term
-                    block_lines += 1
+                # Process new term (current_term)
+                recent_term = current_term
+                recent_postings = current_postings
 
             else:
-                # IMPLEMENTAR IDF
-                final_block_file.write(f",{current_postings}".encode('utf-8'))
+                # Merge postings list while current_term = recent_term
+                recent_postings += f",{current_postings}"
 
             lines[min_index] = files[min_index].readline().decode('utf-8')[:-1]
 
