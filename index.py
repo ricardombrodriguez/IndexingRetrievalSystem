@@ -138,6 +138,7 @@ class BaseIndex:
     def __init__(self, posting_threshold, **kwargs):
         self.posting_list = {}
         self._posting_threshold = posting_threshold
+
         self.token_threshold = kwargs['token_threshold'] if kwargs['token_threshold'] else 50000
 
         self.block_counter = 0
@@ -178,9 +179,17 @@ class BaseIndex:
         if not os.path.exists(f"{path_to_folder}/index.txt"):
             raise FileNotFoundError
 
-        index_classname = os.getxattr('indexes/pubmedSPIMIindexTiny/index.txt', 'user.indexer_index').decode('utf-8')
+        index_classname = os.getxattr(
+                'indexes/pubmedSPIMIindexTiny/index.txt', 'user.indexer_index'
+            ).decode('utf-8')
+
         if index_classname == "InvertedIndex":
-            return InvertedIndexSearcher()
+            return InvertedIndexSearcher(
+                path_to_folder=path_to_folder,
+                posting_threshold=0
+            )
+
+        raise NotImplementedError
 
 class InvertedIndex(BaseIndex):
     # make an efficient implementation of an inverted index
@@ -373,7 +382,7 @@ class InvertedIndex(BaseIndex):
         raise NotImplementedError()
         # index = cls(posting_threshold, **kwargs)
         # index.posting_list = ... Adicionar os postings do ficheiro
-        # esta classe tem de retornar um InvertedIndex    
+        # esta classe tem de retornar um InvertedIndex
 
 class InvertedIndexSearcher(BaseIndex):
     """
@@ -383,7 +392,7 @@ class InvertedIndexSearcher(BaseIndex):
     """
 
     def __init__(self, posting_threshold, path_to_folder):
-        super().__init__(posting_threshold, **{})
+        super().__init__(posting_threshold, **{'token_threshold': None})
         self.path_to_folder = path_to_folder
         self.index = self.read_index_file()
 
@@ -396,11 +405,12 @@ class InvertedIndexSearcher(BaseIndex):
             raise FileNotFoundError
 
         index_file = open(f"{self.path_to_folder}/index.txt")
-        line = index_file.readline()
+        line = index_file.readline().strip()
 
         index = []
-        while line is not None:
+        while line != "" and line is not None:
             helper = line.split(" ")
+
             if len(helper) != 3:
                 raise Exception(
                     "Bad formated index! It should be: <first_term> <last_term> <block_location>"
@@ -411,6 +421,8 @@ class InvertedIndexSearcher(BaseIndex):
                 'last_token': helper[1],
                 'path': helper[2]
             })
+
+            line = index_file.readline().strip()
 
         return index
 
