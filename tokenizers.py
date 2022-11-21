@@ -28,12 +28,13 @@ class Tokenizer:
             lower_term = term.lower()                                                                                                
             filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')              # remove all non alphanumeric characters for the exception of the hiphens (removed at the beginning)
 
-            if not filtered_term or len(filtered_term) < self.minL:
+            if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL:
                 continue
 
             if lower_term != filtered_term:
-                for splitted_term in filtered_term.split(' '):
-                    filtered_terms.append(splitted_term)
+                for splitted_term in filtered_term.split(' '):   
+                    if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL:
+                        filtered_terms.append(splitted_term)
             else:
                 filtered_terms.append(filtered_term)
 
