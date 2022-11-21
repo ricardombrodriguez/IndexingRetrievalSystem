@@ -25,6 +25,9 @@ class Indexer:
     def get_index(self):
         return self._index
 
+    def get_index_name(self):
+        return self._index.__class__.__name__
+
     def build_index(self, reader, tokenizer, index_output_folder):
         raise NotImplementedError()
 
@@ -107,6 +110,7 @@ class SPIMIIndexer(Indexer):
         self._index.merge_blocks(index_output_folder, n_documents=n_documents, weight_method=self.weight_method, kwargs=self.kwargs)
 
         # Write metadata in index.txt file
+        os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_index', f'{self.get_index_name()}'.encode('utf-8'))
         os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_stemmer', f'{self.stemmer}'.encode('utf-8'))
         os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_n_documents', f'{n_documents}'.encode('utf-8'))
         os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_weight', f'{self.weight_method}'.encode('utf-8'))
@@ -171,8 +175,12 @@ class BaseIndex:
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):
-        # cls is an argument that referes to the called class, use it for initialize your index
-        raise NotImplementedError()
+        if not os.path.exists(f"{path_to_folder}/index.txt"):
+            raise FileNotFoundError
+
+        index_classname = os.getxattr('indexes/pubmedSPIMIindexTiny/index.txt', 'user.indexer_index').decode('utf-8')
+        if index_classname == "InvertedIndex":
+            return InvertedIndexSearcher()
 
 class InvertedIndex(BaseIndex):
     # make an efficient implementation of an inverted index
@@ -249,6 +257,10 @@ class InvertedIndex(BaseIndex):
         # n_tokens in index
         n_tokens = 0
 
+        # clean index.txt
+        f = open(f"{folder}/index.txt", "w")
+        f.close()
+
         tic = time()
 
         func = None
@@ -280,16 +292,19 @@ class InvertedIndex(BaseIndex):
                 # We will create a new block file when the number of lines in
                 # the current block file is greater than the token_threshold
                 if block_lines >= self.token_threshold - 1:
-                
-                    print(f"Block {final_block_counter} finished | first_term={first_term} and recent_term={current_term}", end="\r")
 
+                    print(f"Block {final_block_counter} finished | \
+                        first_term={first_term} and recent_term={current_term}", end="\r")
+
+                    # IMPLEMENTAR IDF
                     final_block_file.write(f"\n{current_term} {current_postings}".encode('utf-8'))
                     recent_term = current_term
 
                     # We have to update the index file
                     # We will write the first and last term of the block and the block's filename
                     with open(f"{folder}/index.txt", "a") as index_file:
-                        index_file.write(f"{first_term} {current_term} {folder}/final_block_{final_block_counter}.txt\n")
+                        index_file.write(f"{first_term} {current_term} \
+                            {folder}/final_block_{final_block_counter}.txt\n")
 
                     # Close the actual block file
                     final_block_file.close()
@@ -299,7 +314,9 @@ class InvertedIndex(BaseIndex):
 
                     # Create a new block file
                     final_block_counter += 1
-                    final_block_file = gzip.GzipFile(f"{folder}/final_block_{final_block_counter}.txt", "wb")
+                    final_block_file = gzip.GzipFile(
+                        f"{folder}/final_block_{final_block_counter}.txt", "wb"
+                    )
 
                     # We need to reset the variables
                     first_term = None
@@ -312,12 +329,12 @@ class InvertedIndex(BaseIndex):
                     block_lines += 1
 
             else:
-
+                # IMPLEMENTAR IDF
                 final_block_file.write(f",{current_postings}".encode('utf-8'))
 
             lines[min_index] = files[min_index].readline().decode('utf-8')[:-1]
 
-            if lines[min_index] == None or lines[min_index] == "":
+            if lines[min_index] is None or lines[min_index] == "":
                 files[min_index].close()
                 files.pop(min_index)
                 lines.pop(min_index)
@@ -326,7 +343,8 @@ class InvertedIndex(BaseIndex):
         # We have to update the index file
         # We will write the first and last term of the block and the block's filename
         with open(f"{folder}/index.txt", "a") as index_file:
-            index_file.write(f"{first_term} {current_term} {folder}/final_block_{final_block_counter}.txt\n")
+            index_file.write(f"{first_term} {current_term} \
+                {folder}/final_block_{final_block_counter}.txt\n")
 
         # Add the size of the index file to the index size
         index_size += os.path.getsize(f"{folder}/index.txt")
@@ -335,14 +353,14 @@ class InvertedIndex(BaseIndex):
 
         # Add the size of the block file to the index size
         index_size += os.path.getsize(f"{folder}/final_block_{final_block_counter}.txt")
-        
+
         print("Merge complete...")
 
         print("Deleting temporary files...")
         # We will delete the temporary files
         for filename in self.filenames:
             os.remove(filename)
-        
+
         toc = time()
 
         self.index_size = index_size
@@ -356,4 +374,58 @@ class InvertedIndex(BaseIndex):
         # index = cls(posting_threshold, **kwargs)
         # index.posting_list = ... Adicionar os postings do ficheiro
         # esta classe tem de retornar um InvertedIndex    
-    
+
+class InvertedIndexSearcher(BaseIndex):
+    """
+    Inverted Index with a focus for search operations
+
+    Created to keep classes simple and focused on one task
+    """
+
+    def __init__(self, posting_threshold, path_to_folder):
+        super().__init__(posting_threshold, **{})
+        self.path_to_folder = path_to_folder
+        self.index = self.read_index_file()
+
+    def read_index_file(self):
+        """
+        This function reads the index.ttx created by the merge function from InvertedIndex function
+        """
+
+        if not os.path.exists(f"{self.path_to_folder}/index.txt"):
+            raise FileNotFoundError
+
+        index_file = open(f"{self.path_to_folder}/index.txt")
+        line = index_file.readline()
+
+        index = []
+        while line is not None:
+            helper = line.split(" ")
+            if len(helper) != 3:
+                raise Exception(
+                    "Bad formated index! It should be: <first_term> <last_term> <block_location>"
+                )
+
+            index.append({
+                'first_token': helper[0],
+                'last_token': helper[1],
+                'path': helper[2]
+            })
+
+        return index
+
+    def search_token(self, token):
+        """
+        Verifies if a token exists in the index
+        If it exists the function returns its posting list
+        If it doesn't exist the function returns None
+
+        This function uses Binary Search to find the token in the index
+        and then searches in the block file until it find the token
+        """
+        # em vez de ler linha a linha do ficheiro block podíamos começar pelo 
+        # fim ou pela linha do meio, mas para já isso é muito complexo e 
+        # temos coisas mais importantes a fazer
+
+
+        pass
