@@ -1,7 +1,13 @@
-from utils import dynamically_init_class
+"""
+Authors:
+Gonçalo Leal - 98008
+Ricardo Rodriguez - 98388
+"""
+
+import re
 from heapq import nlargest
 from math import log10, sqrt
-import re
+from utils import dynamically_init_class
 
 def dynamically_init_searcher(**kwargs):
     """Dynamically initializes a Tokenizer object from this
@@ -14,7 +20,7 @@ def dynamically_init_searcher(**kwargs):
         Note that the variable `class` must be here and that it will
         not be passed as an initialization argument since it is removed
         from this dict.
-    
+
     Returns
         ----------
         object
@@ -33,6 +39,7 @@ class BaseSearcher:
 
         # aplies the tokenization to get the query_tokens
         query_tokens = []
+
         results = self.search(index, query_tokens, top_k)
 
         # write results to disk
@@ -58,7 +65,6 @@ class BaseSearcher:
                 tokens.append(stem_t)
 
         return tokens
-
 
 class TFIDFRanking(BaseSearcher):
 

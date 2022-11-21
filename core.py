@@ -132,8 +132,6 @@ def searcher_logic(index_folder,
 
     reader = dynamically_init_reader(path_to_questions=path_to_questions,
                                     **reader_args.get_kwargs())
-    
-    
 
     ranker = dynamically_init_searcher(**ranking_args.get_kwargs())
 
