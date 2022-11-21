@@ -4,33 +4,29 @@ Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
 
-from cgitb import small
-from operator import index
-from utils import dynamically_init_class
-import psutil
 from time import time, strftime, gmtime
 from math import log10
 import gzip
 import os
+import psutil
+from utils import dynamically_init_class
 
 def dynamically_init_indexer(**kwargs):
     return dynamically_init_class(__name__, **kwargs)
 
-
 class Indexer:
-    
-    def __init__(self, 
+
+    def __init__(self,
                  index_instance,
                  **kwargs):
         super().__init__()
         self._index = index_instance
-    
+
     def get_index(self):
         return self._index
-    
+
     def build_index(self, reader, tokenizer, index_output_folder):
         raise NotImplementedError()
-    
 
 class SPIMIIndexer(Indexer):
     
@@ -47,6 +43,7 @@ class SPIMIIndexer(Indexer):
         self.token_threshold = token_threshold if token_threshold else 50000
         self.weight_method = None
         self.kwargs = kwargs
+        self.stemmer = ""
 
         print("init SPIMIIndexer|", f"{posting_threshold=}, {memory_threshold=}")
 
@@ -73,11 +70,8 @@ class SPIMIIndexer(Indexer):
 
             n_documents += 1
 
-            tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
+            tokens, self.stemmer = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
-<<<<<<< HEAD
-            [self._index.add_term(token, doc_id, log_tf, index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, log_tf in data.items()] # add terms to index
-=======
             if self.weight_method == 'tfidf':
                 if self.smart[0] == 'l':
                     # Calculate logarithm of term frequency
@@ -94,8 +88,7 @@ class SPIMIIndexer(Indexer):
                     # Calculate log ave
                     raise NotImplementedError
 
-            [self._index.add_term(token, doc_id, counter, index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, counter in data.items()] # add terms to index
->>>>>>> b2edfd9be265954e4ac678e55a0c60917068592e
+            [self._index.add_term(token, doc_id, log_tf, index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, log_tf in data.items()] # add terms to index
 
             pub_terms = {}
 
@@ -112,6 +105,16 @@ class SPIMIIndexer(Indexer):
 
         # now we have to merge all the blocks
         self._index.merge_blocks(index_output_folder, n_documents=n_documents, weight_method=self.weight_method, kwargs=self.kwargs)
+
+        # Write metadata in index.txt file
+        os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_stemmer', f'{self.stemmer}'.encode('utf-8'))
+        os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_n_documents', f'{n_documents}'.encode('utf-8'))
+        os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_weight', f'{self.weight_method}'.encode('utf-8'))
+        if self.weight_method == 'tfidf':
+            os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_smart', f'{self.smart}'.encode('utf-8'))
+        elif self.weight_method == 'bm25':
+            os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_k1', f'{self.bm25_k1}'.encode('utf-8'))
+            os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_b', f'{self.bm25_b}'.encode('utf-8'))
 
         toc = time()
 
@@ -140,7 +143,7 @@ class BaseIndex:
         self.index_size = 0
         self.n_tokens = 0
         self.merging_time = 0
-    
+
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
         if self._posting_threshold and len(self.posting_list) > self._posting_threshold:
@@ -155,7 +158,7 @@ class BaseIndex:
             self.posting_list[doc_id] = [term]
         else:
             self.posting_list[doc_id].append(term)
-    
+
     def print_statistics(self):
         print(f"{self.index_size/(1<<20)}mb occupied in disk | {self.n_tokens} tokens | merge took {self.merging_time} seconds")
 
@@ -176,11 +179,11 @@ class InvertedIndex(BaseIndex):
 
     def __init__(self, posting_threshold, **kwargs):
         super().__init__(posting_threshold, **kwargs)
-    
+
     def add_term(self, term, doc_id, *args, **kwargs):
         # check if postings list size > postings_threshold
         if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold):
-            
+    
             # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
             if 'index_output_folder' not in kwargs:
                 raise ValueError("index_output_folder is required in kwargs in order to store the index on disk")
@@ -213,10 +216,10 @@ class InvertedIndex(BaseIndex):
 
     def merge_blocks(self, folder, n_documents, weight_method, kwargs):
         print("Merging blocks...")
-    
+
         # We will iterate over the files containing the blocks
         # and we will merge them by reading the first line of each file
-        # and then we will compare them and append the smallest one 
+        # and then we will compare them and append the smallest one
         # (alphabetically) to the final block files (after merging)
         # and we will read the next line of the file that we appended
         # we will do this until we reach the end of all the files
@@ -261,7 +264,7 @@ class InvertedIndex(BaseIndex):
                 raise NotImplementedError
 
         while files_ended < len(files):
-            
+
             # The lines are in the format "term doc_id:counter,doc_id:counter,doc_id:counter"
             # We will split the lines by the space and we will get the term and the posting list
             terms = [line.split(" ", 1)[0] if line else None for line in lines]
@@ -270,7 +273,7 @@ class InvertedIndex(BaseIndex):
             smallest_term_index = 0
             for i in range(1, len(terms)):
                 if (terms[smallest_term_index]) is None or (terms[i] is not None and terms[i] < terms[smallest_term_index]):
-                    smallest_term_index = i 
+                    smallest_term_index = i
 
             # We won't write the line for now, because we may need to merge
             # the posting list in this line with the posting list in the next line
