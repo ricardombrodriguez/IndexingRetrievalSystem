@@ -392,11 +392,6 @@ class InvertedIndex(BaseIndex):
                         end="\x1b[1K\r"
                     )
 
-                    if func:
-                        final_block_file.write(f"\n{recent_term} {posting_list}".encode('utf-8'))
-                    else:
-                        final_block_file.write(f"\n{recent_term} {recent_postings}".encode('utf-8'))
-
                     # We have to update the index file
                     # We will write the first and last term of the block and the block's filename
                     with open(f"{folder}/index.txt", "a") as index_file:
