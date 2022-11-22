@@ -33,7 +33,7 @@ class Indexer:
         raise NotImplementedError()
 
 class SPIMIIndexer(Indexer):
-    
+
     def __init__(self,
                  posting_threshold,
                  memory_threshold,
@@ -41,7 +41,11 @@ class SPIMIIndexer(Indexer):
                  **kwargs):
         # lets suppose that the SPIMIIindex uses the inverted index, so
         # it initializes this type of index
-        super().__init__(InvertedIndex(posting_threshold, token_threshold=token_threshold), **kwargs)
+        super().__init__(
+            InvertedIndex(posting_threshold, token_threshold=token_threshold),
+            **kwargs
+        )
+
         self.posting_threshold = posting_threshold
         self.memory_threshold = memory_threshold if memory_threshold else 75
         self.token_threshold = token_threshold if token_threshold else 50000
@@ -62,6 +66,7 @@ class SPIMIIndexer(Indexer):
             self.pub_length = {}
             self.pub_total_tokens = 0
             self.pub_avg_length = 0
+            print("Using bm25")
             # print(f"Using bm25 - k1 = {self.bm25_k1}; b = {self.bm25_b}")
 
     def build_index(self, reader, tokenizer, index_output_folder):
@@ -99,7 +104,16 @@ class SPIMIIndexer(Indexer):
                 self.pub_length[pmid] = pub_tokens
                 self.pub_total_tokens += pub_tokens
 
-            [self._index.add_term(token, doc_id, counter, index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, counter in data.items()] # add terms to index
+            _ = [
+                self._index.add_term(
+                    token,
+                    doc_id,
+                    counter,
+                    index_output_folder=index_output_folder
+                )
+                for token, data in tokens.items()
+                for doc_id, counter in data.items()
+            ] # add terms to index
 
             pub_terms = {}
 
@@ -115,29 +129,60 @@ class SPIMIIndexer(Indexer):
         n_temporary_files = len(self._index.filenames)
 
         # now we have to merge all the blocks
-        self._index.merge_blocks(index_output_folder, n_documents=n_documents, weight_method=self.weight_method, kwargs=self.kwargs)
+        self._index.merge_blocks(
+            index_output_folder,
+            n_documents=n_documents,
+            weight_method=self.weight_method,
+            kwargs=self.kwargs
+        )
 
         # Write metadata in index.txt file
-        os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_index', f'{self.get_index_name()}'.encode('utf-8'))
-        os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_stemmer', f'{self.stemmer}'.encode('utf-8'))
-        os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_n_documents', f'{n_documents}'.encode('utf-8'))
-        os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_weight', f'{self.weight_method}'.encode('utf-8'))
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_index',
+            f'{self.get_index_name()}'.encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_stemmer',
+            f'{self.stemmer}'.encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_n_documents',
+            f'{n_documents}'.encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_stopwords',
+            f'{tokenizer.stopwords_path if tokenizer.stopwords_path else ""}'
+            .encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_minL', f'{tokenizer.minL}'
+            .encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_weight',
+            f'{self.weight_method}'.encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_token_threshold',
+            f'{self._index.token_threshold}'.encode('utf-8')
+        )
 
         if self.weight_method == 'tfidf':
-            os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_smart', f'{self.smart}'.encode('utf-8'))
+            os.setxattr(
+                f'{index_output_folder}/index.txt', 'user.indexer_smart',
+                f'{self.smart}'.encode('utf-8')
+            )
         elif self.weight_method == 'bm25':
-            # os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_k1', f'{self.bm25_k1}'.encode('utf-8'))
-            # os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_b', f'{self.bm25_b}'.encode('utf-8'))
-            # os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_pub_total_length', f'{self.pub_total_tokens}'.encode('utf-8'))
-
             # store pub_length dictionary | { pub_id : pub_length }
             with open(f"{index_output_folder}/pubs_length.txt", "wb") as f:
                 for pmid, pub_len in self.pub_length.items():
                     f.write(f"{pmid} {pub_len}\n".encode('utf-8'))
             self.pub_avg_length = self.pub_total_tokens / n_documents
-            os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_pub_avg_length', f'{self.pub_avg_length}'.encode('utf-8'))
+            os.setxattr(
+                f'{index_output_folder}/index.txt', 'user.indexer_pub_avg_length',
+                f'{self.pub_avg_length}'.encode('utf-8')
+            )
 
-        
         toc = time()
 
         print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {self._index.n_tokens} tokens")
@@ -173,7 +218,9 @@ class BaseIndex:
         if self._posting_threshold and len(self.posting_list) > self._posting_threshold:
             # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
             if 'index_output_folder' not in kwargs:
-                raise ValueError("index_output_folder is required in kwargs in order to store the index on disk")
+                raise ValueError(
+                    "index_output_folder is required in kwargs in order to store the index on disk"
+                )
 
             self.write_to_disk(kwargs['index_output_folder'])
             self.clean_index()

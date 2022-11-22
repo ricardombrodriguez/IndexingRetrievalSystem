@@ -238,6 +238,9 @@ class TFIDFRanking(BaseSearcher):
         return results
 
 class BM25Ranking(BaseSearcher):
+    """
+    This class is responsible for searching and ranking documents based on a bm25 weighted index
+    """
 
     def __init__(self, k1, b, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -245,10 +248,12 @@ class BM25Ranking(BaseSearcher):
         self.b = b
         print("init BM25Ranking|", f"{k1=}", f"{b=}")
         if kwargs:
-            print(f"{self.__class__.__name__} also caught the following additional arguments {kwargs}")
+            print(
+                f"{self.__class__.__name__} also caught the following additional arguments {kwargs}"
+            )
 
     def search(self, index, query_tokens, top_k):
-        
+
         # Dictionary to store the bm25 ranking of each publication, according to the current query
         pub_scores = {}
 
@@ -264,8 +269,8 @@ class BM25Ranking(BaseSearcher):
         for query_token, query_token_tf in query_tokens.items():
 
             # Retrieve token postings list, if it exists
-            postings_list = index.search_token(query_token) 
-            
+            postings_list = index.search_token(query_token)
+
             # If the token doesn't exists (None), discard the query token for the ranking
             if not postings_list:
                 continue
@@ -273,11 +278,14 @@ class BM25Ranking(BaseSearcher):
             idf = self.calculate_idf(postings_list, n_documents)
 
             # Iterating each publication in the postings list and update its BM25 score
-            for pub_id, tf in postings_list.items():
+            for pub_id, term_frequency in postings_list.items():
 
-                score = self.calculate_bm25(idf, tf, self.k1, self.k, pubs_length[pub_id], avg_pub_length)
+                score = self.calculate_bm25(
+                    idf, term_frequency, self.k1, self.b, pubs_length[pub_id], avg_pub_length
+                )
 
-                # Add score to pub_scores. Note: if a token is repeated two times in a query, the score is going to be multiplied by 2
+                # Add score to pub_scores. Note: if a token is repeated two times in a query, 
+                # the score is going to be multiplied by 2
                 if pub_id not in pub_scores:
                     pub_scores[pub_id] = score * query_token_tf
                 else:
