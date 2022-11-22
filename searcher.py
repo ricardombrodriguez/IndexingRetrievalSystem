@@ -35,20 +35,42 @@ class BaseSearcher:
 
     def batch_search(self, index, reader, tokenizer, output_file, top_k=1000):
         print("searching...")
-        # loop that reads the questions
 
-        # aplies the tokenization to get the query_tokens
-        query_tokens = []
 
-        results = self.search(index, query_tokens, top_k)
+        # loop that reads the questions from the QuestionsReader
+        query = reader.read_next_question()
+        while query:
+            # aplies the tokenization to get the query_tokens
+            # Tokenizer returns a dictionary with
 
-        # write results to disk
+            #     {
+            #         'term': {
+            #             'pub_id1': counter1,
+            #             'pub_id2': counter2,
+            #             'pub_id3': counter3,
+            #         },
+            #         ...
+            #     }
 
-    def get_token_postings_list(self, token):
-        pass
+            # We will only have one pub ID because we will address each query at a time
+            # so, after getting the result from tokenize we transform the return into
+
+            #     {
+            #         'term': counter,
+            #         ...
+            #     }
+
+
+            query_tokens = {token: pubs['1'] for token, pubs in tokenizer.tokenize('1', query).items()}
+            print(query_tokens)
+            results = self.search(index, query_tokens, top_k)
+
+            # write results to disk
+
+            query = reader.read_next_question()
 
     def normalise_token(self, term):
-                                               
+
         lower_term = term.lower()                                                                                                
         filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')              # remove all non alphanumeric characters for the exception of the hiphens (removed at the beginning)
 
@@ -73,41 +95,55 @@ class TFIDFRanking(BaseSearcher):
         self.smart = smart
         print("init TFIDFRanking|", f"{smart=}")
         if kwargs:
-            print(f"{self.__class__.__name__} also caught the following additional arguments {kwargs}")
+            print(
+                f"{self.__class__.__name__} also caught the following additional arguments {kwargs}"
+            )
+
+    def calc_frequency(self, term_frequency):
+        """
+        Returns the term frequency based on the smart notation
+        """
+
+        frequency_letter = self.smart.split('.')[1][0]
+        if frequency_letter == 'n':
+            return term_frequency
+        if frequency_letter == 'l':
+            return 1 + log10(term_frequency)
+        if frequency_letter == 'a':
+            # Calculate augmented
+            raise NotImplementedError
+        if frequency_letter == 'b':
+            # Calculate boolean
+            raise NotImplementedError
+        if frequency_letter == 'L':
+            # Calculate log ave
+            raise NotImplementedError
 
     def search(self, index, query_tokens, top_k):
+        # calc term frequency
+        tokens_weights = {
+            token: self.calc_frequency(frequency) for token, frequency in query_tokens.items()
+        }
 
-        tokens = [t for token in query_tokens for t in self.normalise_token(token) ]    # filter query terms    
-        query_matrix = { token : 1 + log10(tokens.count(token)) for token in tokens }   # query term frequency
-        
-        weights = dict()
+        # posting_lists = {'token': {'doc_id': no_normalized_weight}}
+        posting_lists = {}
+        # get posting list for each token
+        for token in tokens_weights:
+            print("Searching for "+token)
+            posting_lists[token] = index.search_token(token)
 
-        for token in query_matrix:
+        # normalize doc weights
 
-            token_idf, postings_list = self.get_token_postings_list(token)
-            if not postings_list:       # no token
-                continue
+        # calc tokens weights (normalized)
 
-            query_weight = query_matrix[token] *  token_idf
+        # compute "normal" index
 
-            for pmid, pub_weight in postings_list.items():
-                token_score = query_weight * pub_weight
-                
-                try:
-                    weights[pmid] += token_score
-                except KeyError:
-                    weights[pmid] = token_score
+        # get results
 
-        query_length = sqrt( sum([score**2 for score in weights ]) )
-
-        for pmid in weights:
-            weights[pmid] /= query_length
-
-        top_pubs = nlargest(top_k, weights, key = lambda score: (weights[score], -score))   # reversed sort min-heap
-
-        return top_pubs
-
-
+        # reversed sort min-heap
+        # top_pubs = nlargest(top_k, weights, key = lambda score: (weights[score], -score))
+        # return top_pubs
+        return None
 
 class BM25Ranking(BaseSearcher):
 
