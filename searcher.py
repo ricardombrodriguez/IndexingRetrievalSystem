@@ -69,24 +69,6 @@ class BaseSearcher:
 
             query = reader.read_next_question()
 
-    def normalise_token(self, term):
-
-        lower_term = term.lower()                                                                                                
-        filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')              # remove all non alphanumeric characters for the exception of the hiphens (removed at the beginning)
-
-        filtered_terms = [ filtered_term ]
-
-        if lower_term != filtered_term:
-            for splitted_term in filtered_term.split(' '):   
-                filtered_terms.append(splitted_term)
-
-        tokens = []
-        for t in filtered_terms:
-            if t not in self.stopwords:
-                stem_t = self.stemmer_obj.stem(t) if self.stemmer else t
-                tokens.append(stem_t)
-
-        return tokens
 
 class TFIDFRanking(BaseSearcher):
 
@@ -156,5 +138,42 @@ class BM25Ranking(BaseSearcher):
             print(f"{self.__class__.__name__} also caught the following additional arguments {kwargs}")
 
     def search(self, index, query_tokens, top_k):
-        # index must be compatible with bm25
-        pass
+        
+        # Dictionary to store the bm25 ranking of each publication, according to the current query
+        pub_scores = {}
+
+        # Iterate through query pairs of (tokens : term frequency)
+        for query_token, query_token_tf in query_tokens.items():
+
+            # Retrieve token postings list, if it exists
+            postings_list = index.search_token(query_token) 
+            
+            # If the token doesn't exists (None), discard the query token for the ranking
+            if not postings_list:
+                continue
+
+            # Iterating each publication in the postings list and update its BM25 score
+            for pub_id, tf in postings_list.items():
+
+                score = self.calculate_bm25(idf, tf, self.k1, self.k, pub_length,avg_pub_length)
+
+                # Add score to pub_scores. Note: if a token is repeated two times in a query, the score is going to be multiplied by 2
+                if pub_id not in pub_scores:
+                    pub_scores[pub_id] = score * query_token_tf
+                else:
+                    pub_scores[pub_id] += score * query_token_tf
+
+        # Using heapq.nlargest to find the k best scored publications in decreasing order
+        top_k_pubs = nlargest(top_k, pub_scores.keys(), key=lambda k: pub_scores[k])
+
+        return top_k_pubs
+
+    def calculate_bm25(self, idf, tf, k1, b, pub_length, avg_pub_length):
+        """
+        Calculates bm25 formula for a publication given a query token
+        """
+
+        coefficient = idf
+        nominator = tf * (k1 + 1)
+        denominator = tf + k1 * (1 - b + b * (pub_length/avg_pub_length) )
+        return coefficient * ( nominator / denominator )
