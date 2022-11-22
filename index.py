@@ -95,7 +95,7 @@ class SPIMIIndexer(Indexer):
                     # Calculate log ave
                     raise NotImplementedError
             elif self.weight_method == 'bm25':
-                pub_tokens = sum([count for token, dic in tokens for count in dic.values()])
+                pub_tokens = sum([count for token, dic in tokens.items() for count in dic.values()])
                 self.pub_length[pmid] = pub_tokens
                 self.pub_total_tokens += pub_tokens
 
@@ -382,8 +382,8 @@ class InvertedIndex(BaseIndex):
         # We have to update the index file
         # We will write the first and last term of the block and the block's filename
         with open(f"{folder}/index.txt", "a") as index_file:
-            index_file.write(f"{first_term} {current_term} \
-                {folder}/final_block_{final_block_counter}.txt\n")
+            index_file.write(f"{first_term} {current_term}" \
+                f" {folder}/final_block_{final_block_counter}.txt\n")
 
         # Add the size of the index file to the index size
         index_size += os.path.getsize(f"{folder}/index.txt")
@@ -450,12 +450,13 @@ class InvertedIndexSearcher(BaseIndex):
                 f"{self.path_to_folder}/index.txt", 'user.indexer_smart'
             ).decode('utf-8')
         elif self.weight_method == 'bm25':
-            self.bm25_k1 = os.getxattr(
-                f"{self.path_to_folder}/index.txt", 'user.indexer_k1'
-            ).decode('utf-8')
-            self.bm25_b = os.getxattr(
-                f"{self.path_to_folder}/index.txt", 'user.indexer_b'
-            ).decode('utf-8')
+            # self.bm25_k1 = os.getxattr(
+            #     f"{self.path_to_folder}/index.txt", 'user.indexer_k1'
+            # ).decode('utf-8')
+            # self.bm25_b = os.getxattr(
+            #     f"{self.path_to_folder}/index.txt", 'user.indexer_b'
+            # ).decode('utf-8')
+            pass
         else:
             raise NotImplementedError
 
