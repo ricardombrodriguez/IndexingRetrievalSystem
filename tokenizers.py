@@ -11,10 +11,9 @@ from os.path import exists
 
 def dynamically_init_tokenizer(**kwargs):
     return dynamically_init_class(__name__, **kwargs)
-    
 
 class Tokenizer:
-    
+
     def __init__(self, **kwargs):
         super().__init__()
 
@@ -23,31 +22,33 @@ class Tokenizer:
 
         # Lowercase, remove ponctuation, parentheses, numbers, and replace
         filtered_terms = []
-        for term in terms:      
-                                                            
-            lower_term = term.lower()                                                                                                
-            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')              # remove all non alphanumeric characters for the exception of the hiphens (removed at the beginning)
+        for term in terms:
+
+            lower_term = term.lower()
+            # remove all non alphanumeric characters for the exception
+            # of the hiphens (removed at the beginning)
+            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')
 
             if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL:
                 continue
 
             if lower_term != filtered_term:
-                for splitted_term in filtered_term.split(' '):   
-                    if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL:
+                for splitted_term in filtered_term.split(' '):
+                    if splitted_term and splitted_term.strip() != "" and len(splitted_term) > self.minL:
                         filtered_terms.append(splitted_term)
             else:
                 filtered_terms.append(filtered_term)
 
         tokens = {}
-        for t in filtered_terms:
-            if t not in self.stopwords:
-                stem_t = self.stemmer_obj.stem(t) if self.stemmer else t
+        for term in filtered_terms:
+            if term not in self.stopwords:
+                stem_t = self.stemmer_obj.stem(term) if self.stemmer else term
                 if stem_t not in tokens:
                     tokens[stem_t] = { pub_id : 1 }
                 else:
                     tokens[stem_t][pub_id] += 1
 
-        return tokens, self.stemmer
+        return tokens
 
     def get_stemmer(self, stemmer_name):
         # This function is used to get the stemmer object
@@ -61,16 +62,15 @@ class Tokenizer:
         else:
             return None
 
-        
 class PubMedTokenizer(Tokenizer):
-    
-    def __init__(self, 
-                 minL, 
-                 stopwords_path, 
-                 stemmer, 
-                 *args, 
+
+    def __init__(self,
+                 minL,
+                 stopwords_path,
+                 stemmer,
+                 *args,
                  **kwargs):
-        
+
         super().__init__(**kwargs)
         self.minL = minL if minL else 0
         self.stopwords_path = stopwords_path
@@ -87,4 +87,10 @@ class PubMedTokenizer(Tokenizer):
 
         #Stemmer
         self.stemmer_obj = self.get_stemmer(self.stemmer)
+
+    def get_class(self):
+        """
+        Return class name
+        """
+        return self.__class__.__name__
         
