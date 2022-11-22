@@ -4,7 +4,6 @@ Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
 
-import re
 from heapq import nlargest
 from math import log10, sqrt
 from utils import dynamically_init_class
@@ -236,6 +235,14 @@ class BM25Ranking(BaseSearcher):
         # Dictionary to store the bm25 ranking of each publication, according to the current query
         pub_scores = {}
 
+        # avg_pub_length -> average length of the publications
+        # n_documents -> total number of documents/publications
+        # pubs_length -> dictionary containing the pmid as key and the length of the publications as value
+        parameters = index.get_pubs_length()
+        avg_pub_length = parameters['avg_pub_length']
+        n_documents = parameters['n_documents']
+        pubs_length = parameters['pubs_length']
+
         # Iterate through query pairs of (tokens : term frequency)
         for query_token, query_token_tf in query_tokens.items():
 
@@ -246,10 +253,12 @@ class BM25Ranking(BaseSearcher):
             if not postings_list:
                 continue
 
+            idf = self.calculate_idf(postings_list, n_documents)
+
             # Iterating each publication in the postings list and update its BM25 score
             for pub_id, tf in postings_list.items():
 
-                score = self.calculate_bm25(idf, tf, self.k1, self.k, pub_length,avg_pub_length)
+                score = self.calculate_bm25(idf, tf, self.k1, self.k, pubs_length[pub_id], avg_pub_length)
 
                 # Add score to pub_scores. Note: if a token is repeated two times in a query, the score is going to be multiplied by 2
                 if pub_id not in pub_scores:
@@ -266,8 +275,15 @@ class BM25Ranking(BaseSearcher):
         """
         Calculates bm25 formula for a publication given a query token
         """
-
         coefficient = idf
         nominator = tf * (k1 + 1)
         denominator = tf + k1 * (1 - b + b * (pub_length/avg_pub_length) )
         return coefficient * ( nominator / denominator )
+
+    def calculate_idf(self, postings_list, n_documents):
+        """
+        Calculates document frequency and then the inverted document frequency
+        """
+        df = len(postings_list)
+        idf = log10( n_documents / ( 1 + df ) )
+        return idf

@@ -9,6 +9,7 @@ from math import log10
 import gzip
 import os
 import psutil
+import linecache
 from utils import dynamically_init_class
 
 def dynamically_init_indexer(**kwargs):
@@ -56,12 +57,12 @@ class SPIMIIndexer(Indexer):
             print(f"Using tfidf - {self.smart}")
         elif kwargs["bm25"]["cache_in_disk"]:
             self.weight_method = 'bm25'
-            self.bm25_k1 = kwargs["bm25"]["k1"]
-            self.bm25_b = kwargs["bm25"]["b"]
+            # self.bm25_k1 = kwargs["bm25"]["k1"]
+            # self.bm25_b = kwargs["bm25"]["b"]
             self.pub_length = {}
             self.pub_total_tokens = 0
             self.pub_avg_length = 0
-            print(f"Using bm25 - k1 = {self.bm25_k1}; b = {self.bm25_b}")
+            # print(f"Using bm25 - k1 = {self.bm25_k1}; b = {self.bm25_b}")
 
     def build_index(self, reader, tokenizer, index_output_folder):
         print("Indexing some documents...")
@@ -121,12 +122,22 @@ class SPIMIIndexer(Indexer):
         os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_stemmer', f'{self.stemmer}'.encode('utf-8'))
         os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_n_documents', f'{n_documents}'.encode('utf-8'))
         os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_weight', f'{self.weight_method}'.encode('utf-8'))
+
         if self.weight_method == 'tfidf':
             os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_smart', f'{self.smart}'.encode('utf-8'))
         elif self.weight_method == 'bm25':
-            os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_k1', f'{self.bm25_k1}'.encode('utf-8'))
-            os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_b', f'{self.bm25_b}'.encode('utf-8'))
+            # os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_k1', f'{self.bm25_k1}'.encode('utf-8'))
+            # os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_b', f'{self.bm25_b}'.encode('utf-8'))
+            # os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_pub_total_length', f'{self.pub_total_tokens}'.encode('utf-8'))
 
+            # store pub_length dictionary | { pub_id : pub_length }
+            with open(f"{index_output_folder}/pubs_length.txt", "wb") as f:
+                for pmid, pub_len in self.pub_length.items():
+                    f.write(f"{pmid} {pub_len}\n".encode('utf-8'))
+            self.pub_avg_length = self.pub_total_tokens / n_documents
+            os.setxattr(f'{index_output_folder}/index.txt', 'user.indexer_pub_avg_length', f'{self.pub_avg_length}'.encode('utf-8'))
+
+        
         toc = time()
 
         print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {self._index.n_tokens} tokens")
@@ -140,8 +151,6 @@ class SPIMIIndexer(Indexer):
         with open("stats.txt", "a") as f:
             f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.merging_time} | {self._index.index_size/(1<<20)} MB | {os.path.getsize(f'{index_output_folder}/index.txt')/(1<<20)} MB | {n_temporary_files} | {self._index.n_tokens}\n")
 
-        if self.weight_method == 'bm25':
-            self.pub_avg_length = self.pub_total_tokens / n_documents
 
 class BaseIndex:
 
@@ -454,7 +463,7 @@ class InvertedIndexSearcher(BaseIndex):
 
     def read_index_file(self):
         """
-        This function reads the index.ttx created by the merge function from InvertedIndex function
+        This function reads the index.txt created by the merge function from InvertedIndex function
         """
 
         if not os.path.exists(f"{self.path_to_folder}/index.txt"):
@@ -514,19 +523,39 @@ class InvertedIndexSearcher(BaseIndex):
 
     def find_in_block(self, block_path, token):
         """
-        Iterates through all lines in the block and searches for the token
+        Binary search implementation to find token's postings list in the block file.
+        Returns 'None' if the line hasn't been found.
+        Returns the postings list if the token is in the block file.
         """
 
-        with gzip.open(block_path, 'rb') as block:
-            for line in block:
-                if line.decode('utf-8').strip() == "":
-                    continue
+        low = 1
+        high = len(self.index)
+        mid = 1
 
-                block_token = line.decode('utf-8').strip().split(" ")[0]
-                if block_token == token:
-                    return line.decode('utf-8').strip().split(" ")[1]
+        while low <= high:
 
+            mid = (high + low) // 2
+
+            # Retrieve the middle line of the block file | { <token> : <postings_list> }
+            line = linecache.getline(block_path,mid).decode('utf-8').strip().split(" ")
+
+            # If token is greater than the last token on this index line,
+            # we ignore the left half of the index
+            if line[0] < token:
+                low = mid + 1
+
+            # If token is smaller than the first token on this index line,
+            # we ignore the right half of the index
+            elif line[0] > token:
+                high = mid - 1
+
+            # Token is between the first and last tokens on this index line
+            else:
+                return line[1]  # Return postings list
+
+        # If we reach here, then the element was not present
         return None
+
 
     def search_token(self, token):
         """
@@ -536,9 +565,6 @@ class InvertedIndexSearcher(BaseIndex):
         This function uses Binary Search to find the token in the index
         and then searches in the block file until it finds the token
         """
-        # em vez de ler linha a linha do ficheiro block podíamos começar pelo
-        # fim ou pela linha do meio, mas para já isso é muito complexo e
-        # temos coisas mais importantes a fazer
 
         index_position = self.find_in_index(token)
         if index_position == -1:
@@ -585,4 +611,34 @@ class InvertedIndexSearcher(BaseIndex):
             'stemmer': stemmer,
             'stopwords_path': stopwords_path,
             'minL': int(min_length)
+        }
+
+
+    def get_pubs_length(self):
+        """
+        This method returns the *pubs_length.txt* file which contains the pub_id and the
+        length of the publication. Additionally, it will get the metadata attributes
+        containing the total number of documents and the average length of the publications. 
+        Needed for BM25 ranking.
+        """
+
+        pubs_length = {}
+
+        pub_avg_length = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_pub_avg_length'
+        ).decode('utf-8')
+        n_documents = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_n_documents'
+        ).decode('utf-8')
+
+        # Retrieve key-value pairs of pub_lenght | "<pmid> <pub_length>"
+        with open(f"{self.path_to_folder}/pubs_length.txt","rb") as f:
+            for line in f:
+                pair = line.decode('utf-8').strip().split(" ")
+                pubs_length[pair[0]] = pair[1]
+
+        return {
+            'pub_avg_length': pub_avg_length,
+            'n_documents': n_documents,
+            'pubs_length': pubs_length
         }
