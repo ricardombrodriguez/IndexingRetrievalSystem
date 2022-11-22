@@ -77,7 +77,7 @@ class SPIMIIndexer(Indexer):
 
             n_documents += 1
 
-            tokens, self.stemmer = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
+            tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
             if self.weight_method == 'tfidf':
                 if self.smart[0] == 'l':
