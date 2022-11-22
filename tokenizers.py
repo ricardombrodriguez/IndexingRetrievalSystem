@@ -33,7 +33,7 @@ class Tokenizer:
 
             if lower_term != filtered_term:
                 for splitted_term in filtered_term.split(' '):   
-                    if not (filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL):
+                    if splitted_term and len(splitted_term) >= self.minL:
                         filtered_terms.append(splitted_term)
             else:
                 filtered_terms.append(filtered_term)

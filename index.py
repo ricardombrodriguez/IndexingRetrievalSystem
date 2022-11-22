@@ -58,6 +58,9 @@ class SPIMIIndexer(Indexer):
             self.weight_method = 'bm25'
             self.bm25_k1 = kwargs["bm25"]["k1"]
             self.bm25_b = kwargs["bm25"]["b"]
+            self.pub_length = {}
+            self.pub_total_tokens = 0
+            self.pub_avg_length = 0
             print(f"Using bm25 - k1 = {self.bm25_k1}; b = {self.bm25_b}")
 
     def build_index(self, reader, tokenizer, index_output_folder):
@@ -90,6 +93,10 @@ class SPIMIIndexer(Indexer):
                 elif self.smart[0] == 'L':
                     # Calculate log ave
                     raise NotImplementedError
+            elif self.weight_method == 'bm25':
+                pub_tokens = sum([count for token, dic in tokens for count in dic.values()])
+                self.pub_length[pmid] = pub_tokens
+                self.pub_total_tokens += pub_tokens
 
             [self._index.add_term(token, doc_id, counter, index_output_folder=index_output_folder) for token, data in tokens.items() for doc_id, counter in data.items()] # add terms to index
 
@@ -132,6 +139,9 @@ class SPIMIIndexer(Indexer):
         # store statistics
         with open("stats.txt", "a") as f:
             f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.merging_time} | {self._index.index_size/(1<<20)} MB | {os.path.getsize(f'{index_output_folder}/index.txt')/(1<<20)} MB | {n_temporary_files} | {self._index.n_tokens}\n")
+
+        if self.weight_method == 'bm25':
+            self.pub_avg_length = self.pub_total_tokens / n_documents
 
 class BaseIndex:
 
