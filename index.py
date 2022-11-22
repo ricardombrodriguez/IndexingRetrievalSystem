@@ -449,6 +449,8 @@ class InvertedIndexSearcher(BaseIndex):
             self.bm25_b = os.getxattr(
                 f"{self.path_to_folder}/index.txt", 'user.indexer_b'
             ).decode('utf-8')
+        else:
+            raise NotImplementedError
 
     def read_index_file(self):
         """
