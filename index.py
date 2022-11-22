@@ -199,7 +199,7 @@ class BaseIndex:
             raise FileNotFoundError
 
         index_classname = os.getxattr(
-                'indexes/pubmedSPIMIindexTiny/index.txt', 'user.indexer_index'
+                f"{path_to_folder}/index.txt", 'user.indexer_index'
             ).decode('utf-8')
 
         if index_classname == "InvertedIndex":
@@ -327,8 +327,6 @@ class InvertedIndex(BaseIndex):
                     for posting in recent_postings.split(","):
                         posting_list += f"{posting.split(':', 1)[0]}:{float(posting.split(':', 1)[1]) * idf},"
 
-                # If fun -> store term weight for each pub; Else -> Write postings list
-                if func:
                     final_block_file.write(f"\n{recent_term} {posting_list}".encode('utf-8'))
                 else:
                     final_block_file.write(f"\n{recent_term} {recent_postings}".encode('utf-8'))
@@ -537,7 +535,8 @@ class InvertedIndexSearcher(BaseIndex):
             mid = (high + low) // 2
 
             # Retrieve the middle line of the block file | { <token> : <postings_list> }
-            line = linecache.getline(block_path,mid).decode('utf-8').strip().split(" ")
+            line = linecache.getline(block_path,mid).strip().split(" ")
+            print(line)
 
             # If token is greater than the last token on this index line,
             # we ignore the left half of the index

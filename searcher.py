@@ -3,7 +3,7 @@ Authors:
 Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
-
+import os
 from heapq import nlargest
 from math import log10, sqrt
 from utils import dynamically_init_class
@@ -33,8 +33,11 @@ class BaseSearcher:
         pass
 
     def batch_search(self, index, reader, tokenizer, output_file, top_k=1000):
-        print("searching...")
+        """
+        Function responsible for orchestrating the search process
+        """
 
+        print("searching...")
 
         # loop that reads the questions from the QuestionsReader
         query = reader.read_next_question()
@@ -66,6 +69,12 @@ class BaseSearcher:
             results = self.search(index, query_tokens, top_k)
 
             # write results to disk
+            with open(output_file, 'a') as file:
+                file.write(query+"\n")
+                for i, result in enumerate(results):
+                    file.write(
+                        f"#{i} - {result['doc_id']} | weight = {result['weight']}"
+                    )
 
             query = reader.read_next_question()
 
@@ -207,18 +216,19 @@ class TFIDFRanking(BaseSearcher):
             doc_weights[doc_id] = doc_weight / (query_normalized_weight * tokens['normalized_weight'])
 
         # Now we sort the documents by weight and choose the top_k 
-        results = dict(sorted(doc_weights.items(), key=lambda item: item[1], reverse=True))
+        results = []
         counter = 0
-        for doc_id, weight in results.items():
+        for doc_id, weight in dict(sorted(doc_weights.items(), key=lambda item: item[1], reverse=True)).items():
             if counter > top_k:
                 break
             counter += 1
+            results.append({
+                'doc_id': doc_id,
+                'weight': weight
+            })
             print(f"{counter}: {doc_id} | weight={weight} | tokens={normal_index[doc_id].keys()}")
 
-        # reversed sort min-heap
-        # top_pubs = nlargest(top_k, weights, key = lambda score: (weights[score], -score))
-        # return top_pubs
-        return results # SÓ DEVE RETORNAR OS top_k RESULTADOS
+        return results
 
 class BM25Ranking(BaseSearcher):
 
