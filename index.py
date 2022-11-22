@@ -410,7 +410,6 @@ class InvertedIndex(BaseIndex):
 class InvertedIndexSearcher(BaseIndex):
     """
     Inverted Index with a focus for search operations
-
     Created to keep classes simple and focused on one task
     """
 
@@ -418,6 +417,38 @@ class InvertedIndexSearcher(BaseIndex):
         super().__init__(posting_threshold, **{'token_threshold': None})
         self.path_to_folder = path_to_folder
         self.index = self.read_index_file()
+
+        # metadata
+        self.n_documents = 0
+        self.weight_method = None
+        self.smart = None
+        self.bm25_b = None
+        self.bm25_k1 = None
+        self.read_index_metadata()
+
+    def read_index_metadata(self):
+        """
+        This function will read the file's metadata
+        """
+
+        self.n_documents = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_n_documents'
+        ).decode('utf-8')
+        self.weight_method = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_weight'
+        ).decode('utf-8')
+
+        if self.weight_method == 'tfidf':
+            self.smart = os.getxattr(
+                f"{self.path_to_folder}/index.txt", 'user.indexer_smart'
+            ).decode('utf-8')
+        elif self.weight_method == 'bm25':
+            self.bm25_k1 = os.getxattr(
+                f"{self.path_to_folder}/index.txt", 'user.indexer_k1'
+            ).decode('utf-8')
+            self.bm25_b = os.getxattr(
+                f"{self.path_to_folder}/index.txt", 'user.indexer_b'
+            ).decode('utf-8')
 
     def read_index_file(self):
         """
@@ -449,17 +480,107 @@ class InvertedIndexSearcher(BaseIndex):
 
         return index
 
+    def find_in_index(self, token):
+        """
+        Binary search implementation to find token's block file in index
+        """
+
+        low = 0
+        high = len(self.index) - 1
+        mid = 0
+
+        while low <= high:
+
+            mid = (high + low) // 2
+
+            # If token is greater than the last token on this index line,
+            # we ignore the left half of the index
+            if self.index[mid]['last_token'] < token:
+                low = mid + 1
+
+            # If token is smaller than the first token on this index line,
+            # we ignore the right half of the index
+            elif self.index[mid]['first_token'] > token:
+                high = mid - 1
+
+            # Token is between the first and last tokens on this index line
+            else:
+                return mid
+
+        # If we reach here, then the element was not present
+        return -1
+
+    def find_in_block(self, block_path, token):
+        """
+        Iterates through all lines in the block and searches for the token
+        """
+
+        with gzip.open(block_path, 'rb') as block:
+            for line in block:
+                if line.decode('utf-8').strip() == "":
+                    continue
+
+                block_token = line.decode('utf-8').strip().split(" ")[0]
+                if block_token == token:
+                    return line.decode('utf-8').strip().split(" ")[1]
+
+        return None
+
     def search_token(self, token):
         """
         Verifies if a token exists in the index
         If it exists the function returns its posting list
         If it doesn't exist the function returns None
-
         This function uses Binary Search to find the token in the index
-        and then searches in the block file until it find the token
+        and then searches in the block file until it finds the token
         """
-        # em vez de ler linha a linha do ficheiro block podíamos começar pelo 
-        # fim ou pela linha do meio, mas para já isso é muito complexo e 
+        # em vez de ler linha a linha do ficheiro block podíamos começar pelo
+        # fim ou pela linha do meio, mas para já isso é muito complexo e
         # temos coisas mais importantes a fazer
 
-        pass
+        index_position = self.find_in_index(token)
+        if index_position == -1:
+            return None
+
+        posting_list = self.find_in_block(
+            block_path = self.index[index_position]['path'],
+            token = token
+        )
+        if not posting_list:
+            return None
+
+        # posting list is a string with the format:
+        # <doc1>:<no_normalized_weight1>,<doc2>:<no_normalized_weight2>,...
+        # we want it to be a dictionary with
+        # {'doc1': no_normalized_weight1, ...}
+        return {
+            doc_info.split(":")[0]: float(doc_info.split(":")[1])
+            for doc_info in posting_list.split(",")
+        }
+
+    def get_tokenizer_kwargs(self):
+        """
+        This class is used to initialize the tokenizer, we use it to guarantee
+        that the params used in the indexing process are also used for the
+        tokenization of query tokens during searching process
+        """
+
+        tokenizer_class = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_tokenizer'
+        ).decode('utf-8')
+        stemmer = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_stemmer'
+        ).decode('utf-8')
+        min_length = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_minL'
+        ).decode('utf-8')
+        stopwords_path = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_stopwords'
+        ).decode('utf-8')
+
+        return {
+            'class': tokenizer_class,
+            'stemmer': stemmer,
+            'stopwords_path': stopwords_path,
+            'minL': int(min_length)
+        }
