@@ -60,35 +60,36 @@ class BaseSearcher:
             #         ...
             #     }
 
-
-            query_tokens = {token: pubs['1'] for token, pubs in tokenizer.tokenize('1', query).items()}
-            print(query_tokens)
+            query_tokens = {
+                token: pubs['1']
+                for token, pubs in tokenizer.tokenize('1', query).items()
+            }
             results = self.search(index, query_tokens, top_k)
 
             # write results to disk
 
             query = reader.read_next_question()
 
-    def normalise_token(self, term):
+    def compute_normal_index(self, posting_lists):
+        """
+        posting_lists = {'token': {'doc_id': no_normalized_weight}}
+        And we want to work with documents, so our index should be
+        normal_index = {'doc_id': {'token': no_normalized_weight}}
+        """
 
-        lower_term = term.lower()                                                                                                
-        filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')              # remove all non alphanumeric characters for the exception of the hiphens (removed at the beginning)
+        normal_index = {}
+        for token, posting_list in posting_lists.items():
+            for doc_id, weight in posting_list.items():
+                if doc_id not in normal_index:
+                    normal_index[doc_id] = {}
 
-        filtered_terms = [ filtered_term ]
-
-        if lower_term != filtered_term:
-            for splitted_term in filtered_term.split(' '):   
-                filtered_terms.append(splitted_term)
-
-        tokens = []
-        for t in filtered_terms:
-            if t not in self.stopwords:
-                stem_t = self.stemmer_obj.stem(t) if self.stemmer else t
-                tokens.append(stem_t)
-
-        return tokens
+                normal_index[doc_id][token] = weight
+        return normal_index
 
 class TFIDFRanking(BaseSearcher):
+    """
+    This class is responsible for searching and ranking documents based on a tfidf weighted index
+    """
 
     def __init__(self, smart, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -99,51 +100,126 @@ class TFIDFRanking(BaseSearcher):
                 f"{self.__class__.__name__} also caught the following additional arguments {kwargs}"
             )
 
-    def calc_frequency(self, term_frequency):
+    def calc_term_frequency(self, term_frequency):
         """
         Returns the term frequency based on the smart notation
         """
 
-        frequency_letter = self.smart.split('.')[1][0]
-        if frequency_letter == 'n':
+        term_frequency_letter = self.smart.split('.')[1][0]
+        if term_frequency_letter == 'n':
             return term_frequency
-        if frequency_letter == 'l':
+        if term_frequency_letter == 'l':
             return 1 + log10(term_frequency)
-        if frequency_letter == 'a':
+        if term_frequency_letter == 'a':
             # Calculate augmented
             raise NotImplementedError
-        if frequency_letter == 'b':
+        if term_frequency_letter == 'b':
             # Calculate boolean
             raise NotImplementedError
-        if frequency_letter == 'L':
+        if term_frequency_letter == 'L':
             # Calculate log ave
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+    def calc_document_frequency(self, posting_list, n_documents):
+        """
+        Returns the term frequency based on the smart notation
+        """
+
+        doc_frequency_letter = self.smart.split('.')[1][1]
+        if doc_frequency_letter == 'n':
+            return 1
+        if doc_frequency_letter == 't':
+            return log10(n_documents/len(posting_list))
+        if doc_frequency_letter == 'p':
+            # Calculate prob idf
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+    def normalize_weights(self, weights, normalization_letter):
+        """
+        Normalizes weigths based on smart notation
+        """
+        if normalization_letter == 'n':
+            return weights
+        if normalization_letter == 'c':
+            weight_sum = 0
+            for weight in weights:
+                weight_sum += weight**2
+
+            return sqrt(weight_sum)
+        if normalization_letter == 'u':
+            # Calculate pivoted unique
+            raise NotImplementedError
+        if normalization_letter == 'b':
+            # Calculate byte size
+            raise NotImplementedError
+        else:
             raise NotImplementedError
 
     def search(self, index, query_tokens, top_k):
         # calc term frequency
         tokens_weights = {
-            token: self.calc_frequency(frequency) for token, frequency in query_tokens.items()
+            token: self.calc_term_frequency(frequency) for token, frequency in query_tokens.items()
         }
 
         # posting_lists = {'token': {'doc_id': no_normalized_weight}}
         posting_lists = {}
         # get posting list for each token
         for token in tokens_weights:
-            print("Searching for "+token)
             posting_lists[token] = index.search_token(token)
 
-        # normalize doc weights
-
-        # calc tokens weights (normalized)
-
         # compute "normal" index
+        normal_index = self.compute_normal_index(posting_lists)
+
+        # normalize doc weights 
+        for doc_id, token_list in normal_index.items():
+            normal_index[doc_id]['normalized_weight'] = self.normalize_weights(
+                weights = [weight for _, weight in token_list.items()],
+                normalization_letter = self.smart.split('.')[0][2]
+            )
+
+        # calc tokens weights
+        for token, weight in tokens_weights.items():
+            tokens_weights[token] = weight * self.calc_document_frequency(
+                posting_list=posting_lists[token],
+                n_documents = int(index.n_documents)
+            )
+
+        # normalize query weights (in other words, get vector norm)
+        query_normalized_weight = self.normalize_weights(
+            weights = [weight for _, weight in tokens_weights.items()],
+            normalization_letter = self.smart.split('.')[1][2]
+        )
 
         # get results
+        doc_weights = {}
+        for doc_id, tokens in normal_index.items():
+            # calc weight
+            # para cada token na query, multiplicamos o seu peso pelo peso do
+            # documento e depois dividimos pelos pesos normalizados de cada um
+            doc_weight = 0
+            for token, weight in tokens_weights.items():
+                if token not in tokens:
+                    continue
+                doc_weight += weight * tokens[token]
+            doc_weights[doc_id] = doc_weight / (query_normalized_weight * tokens['normalized_weight'])
+
+        # Now we sort the documents by weight and choose the top_k 
+        results = dict(sorted(doc_weights.items(), key=lambda item: item[1], reverse=True))
+        counter = 0
+        for doc_id, weight in results.items():
+            if counter > top_k:
+                break
+            counter += 1
+            print(f"{counter}: {doc_id} | weight={weight} | tokens={normal_index[doc_id].keys()}")
 
         # reversed sort min-heap
         # top_pubs = nlargest(top_k, weights, key = lambda score: (weights[score], -score))
         # return top_pubs
-        return None
+        return results # SÓ DEVE RETORNAR OS top_k RESULTADOS
 
 class BM25Ranking(BaseSearcher):
 
