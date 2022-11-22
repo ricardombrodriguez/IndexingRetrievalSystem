@@ -48,7 +48,7 @@ class Tokenizer:
                 else:
                     tokens[stem_t][pub_id] += 1
 
-        return tokens
+        return tokens, self.stemmer
 
     def get_stemmer(self, stemmer_name):
         # This function is used to get the stemmer object

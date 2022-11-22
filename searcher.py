@@ -36,6 +36,8 @@ class BaseSearcher:
         print("searching...")
 
 
+        f = open(output_file, 'w')
+
         # loop that reads the questions from the QuestionsReader
         query = reader.read_next_question()
         while query:
@@ -59,15 +61,23 @@ class BaseSearcher:
             #         ...
             #     }
 
+            current_k = 1
+
             query_tokens = {
                 token: pubs['1']
                 for token, pubs in tokenizer.tokenize('1', query).items()
             }
+
             results = self.search(index, query_tokens, top_k)
 
             # write results to disk
+            f.write("\n\n[QUERY] {query}\n\n")
+            for pmid, pscore in results:
+                f.write(f"1º ----> pmid: {pmid} | score: {pscore}\n")
 
             query = reader.read_next_question()
+        
+        f.close()
 
     def compute_normal_index(self, posting_lists):
         """
@@ -269,7 +279,8 @@ class BM25Ranking(BaseSearcher):
         # Using heapq.nlargest to find the k best scored publications in decreasing order
         top_k_pubs = nlargest(top_k, pub_scores.keys(), key=lambda k: pub_scores[k])
 
-        return top_k_pubs
+        # Return top-k pmid : pub_score
+        return { pmid : pub_scores[pmid] for pmid in top_k_pubs }
 
     def calculate_bm25(self, idf, tf, k1, b, pub_length, avg_pub_length):
         """
