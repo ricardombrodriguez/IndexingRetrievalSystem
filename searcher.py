@@ -77,9 +77,9 @@ class BaseSearcher:
 
                 f.write(" ".join(query)+"\n")
                 print(results)
-                for i, result in enumerate(results):
+                for i, pmid in enumerate(results):
                     f.write(
-                        f"#{i} - {result['doc_id']} | weight = {result['weight']}"
+                        f"#{i+1} - {pmid} | weight = {results[pmid]}\n"
                     )
                 f.write('\n')
 
@@ -276,12 +276,9 @@ class BM25Ranking(BaseSearcher):
         # n_documents -> total number of documents/publications
         # pubs_length -> dictionary containing the pmid as key and the length of the publications as value
         parameters = index.get_pubs_length()
-        avg_pub_length = parameters['pub_avg_length']
-        n_documents = parameters['n_documents']
+        avg_pub_length = float(parameters['pub_avg_length'])
+        n_documents = int(parameters['n_documents'])
         pubs_length = parameters['pubs_length']
-
-        print(avg_pub_length)
-        print(n_documents)
 
         # Iterate through query pairs of (tokens : term frequency)
         for query_token, query_token_tf in query_tokens.items():
@@ -323,7 +320,7 @@ class BM25Ranking(BaseSearcher):
         """
         coefficient = idf
         nominator = tf * (k1 + 1)
-        denominator = tf + k1 * (1 - b + b * (pub_length/avg_pub_length) )
+        denominator = tf + k1 * (1 - b + b * (int(pub_length)/avg_pub_length) )
         return coefficient * ( nominator / denominator )
 
     def calculate_idf(self, postings_list, n_documents):
@@ -331,5 +328,5 @@ class BM25Ranking(BaseSearcher):
         Calculates document frequency and then the inverted document frequency
         """
         df = len(postings_list)
-        idf = log10( n_documents / ( 1 + df ) )
+        idf = log10( int(n_documents) / ( 1 + df ) )
         return idf
