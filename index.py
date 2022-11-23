@@ -143,8 +143,12 @@ class SPIMIIndexer(Indexer):
             f'{self.get_index_name()}'.encode('utf-8')
         )
         os.setxattr(
-            f'{index_output_folder}/index.txt', 'user.indexer_tokenizer', f'{tokenizer.get_class()}'
-            .encode('utf-8')
+            f'{index_output_folder}/index.txt', 'user.indexer_stemmer',
+            f'{self.stemmer}'.encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_n_documents',
+            f'{n_documents}'.encode('utf-8')
         )
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_stopwords',
@@ -154,14 +158,6 @@ class SPIMIIndexer(Indexer):
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_minL', f'{tokenizer.minL}'
             .encode('utf-8')
-        )
-        os.setxattr(
-            f'{index_output_folder}/index.txt', 'user.indexer_stemmer',
-            f'{self.stemmer}'.encode('utf-8')
-        )
-        os.setxattr(
-            f'{index_output_folder}/index.txt', 'user.indexer_n_documents',
-            f'{n_documents}'.encode('utf-8')
         )
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_weight',
@@ -382,7 +378,7 @@ class InvertedIndex(BaseIndex):
 
                 # if func is none at this point, then we may assume that the document frequency chosen is the no (n) one
                 posting_list = ""
-                if func is not None:
+                if recent_term and func is not None:
                     # merge_line is "<term> <doc1>:<term_frequency>,<doc2>:<term_frequency>,<doc3>:<term_frequency>,"
                     # we want tfidf, so we have to multiply tf with idf
                     idf = func(len(recent_postings.split(",")))
@@ -582,15 +578,18 @@ class InvertedIndexSearcher(BaseIndex):
         # If we reach here, then the element was not present
         return -1
 
-    def find_in_block(self, block_path, token):
+    def find_in_block_binary(self, block_path, token):
         """
         Binary search implementation to find token's postings list in the block file.
         Returns 'None' if the line hasn't been found.
         Returns the postings list if the token is in the block file.
         """
+        block_lines = []
+        with gzip.open(block_path, 'rb') as block:
+            block_lines = block.readlines()
 
         low = 1
-        high = len(self.index)
+        high = len(block_lines)
         mid = 1
 
         while low <= high:
@@ -599,6 +598,7 @@ class InvertedIndexSearcher(BaseIndex):
 
             # Retrieve the middle line of the block file | { <token> : <postings_list> }
             line = linecache.getline(block_path,mid).strip().split(" ")
+            print(line)
 
             # If token is greater than the last token on this index line,
             # we ignore the left half of the index
@@ -617,6 +617,24 @@ class InvertedIndexSearcher(BaseIndex):
         # If we reach here, then the element was not present
         return None
 
+    def find_in_block(self, block_path, token):
+        """
+        Iterates through all lines in the block and searches for the token
+        """
+
+        with gzip.open(block_path, 'rb') as block:
+            for line in block:
+                if line.decode('utf-8').strip() == "":
+                    continue
+
+                block_token = line.decode('utf-8').strip().split(" ")[0]
+                if block_token == token:
+                    return line.decode('utf-8').strip().split(" ")[1]
+
+                if block_token > token:
+                    return None
+
+        return None
 
     def search_token(self, token):
         """
