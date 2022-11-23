@@ -136,18 +136,15 @@ class SPIMIIndexer(Indexer):
             kwargs=self.kwargs
         )
 
+
         # Write metadata in index.txt file
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_index',
             f'{self.get_index_name()}'.encode('utf-8')
         )
         os.setxattr(
-            f'{index_output_folder}/index.txt', 'user.indexer_stemmer',
-            f'{self.stemmer}'.encode('utf-8')
-        )
-        os.setxattr(
-            f'{index_output_folder}/index.txt', 'user.indexer_n_documents',
-            f'{n_documents}'.encode('utf-8')
+            f'{index_output_folder}/index.txt', 'user.indexer_tokenizer', f'{tokenizer.get_class()}'
+            .encode('utf-8')
         )
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_stopwords',
@@ -157,6 +154,14 @@ class SPIMIIndexer(Indexer):
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_minL', f'{tokenizer.minL}'
             .encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_stemmer',
+            f'{self.stemmer}'.encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_n_documents',
+            f'{n_documents}'.encode('utf-8')
         )
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_weight',
@@ -173,6 +178,16 @@ class SPIMIIndexer(Indexer):
                 f'{self.smart}'.encode('utf-8')
             )
         elif self.weight_method == 'bm25':
+
+            # os.setxattr(
+            #     f'{index_output_folder}/index.txt', 'user.indexer_k1', f'{self.bm25_k1}'
+            #     .encode('utf-8')
+            # )
+            # os.setxattr(
+            #     f'{index_output_folder}/index.txt', 'user.indexer_b', f'{self.bm25_b}'
+            #     .encode('utf-8')
+            # )
+
             # store pub_length dictionary | { pub_id : pub_length }
             with open(f"{index_output_folder}/pubs_length.txt", "wb") as f:
                 for pmid, pub_len in self.pub_length.items():
@@ -584,7 +599,6 @@ class InvertedIndexSearcher(BaseIndex):
 
             # Retrieve the middle line of the block file | { <token> : <postings_list> }
             line = linecache.getline(block_path,mid).strip().split(" ")
-            print(line)
 
             # If token is greater than the last token on this index line,
             # we ignore the left half of the index

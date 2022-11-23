@@ -39,51 +39,51 @@ class BaseSearcher:
 
         print("searching...")
 
-        f = open(output_file, 'a')
+        with open(output_file, 'w+') as f:
 
-        # loop that reads the questions from the QuestionsReader
-        query = reader.read_next_question()
-        while query:
-            # aplies the tokenization to get the query_tokens
-            # Tokenizer returns a dictionary with
-
-            #     {
-            #         'term': {
-            #             'pub_id1': counter1,
-            #             'pub_id2': counter2,
-            #             'pub_id3': counter3,
-            #         },
-            #         ...
-            #     }
-
-            # We will only have one pub ID because we will address each query at a time
-            # so, after getting the result from tokenize we transform the return into
-
-            #     {
-            #         'term': counter,
-            #         ...
-            #     }
-
-            current_k = 1
-
-            query_tokens = {
-                token: pubs['1']
-                for token, pubs in tokenizer.tokenize('1', query).items()
-            }
-
-            results = self.search(index, query_tokens, top_k)
-
-            # write results to disk
-
-            f.write(query+"\n")
-            for i, result in enumerate(results):
-                f.write(
-                    f"#{i} - {result['doc_id']} | weight = {result['weight']}"
-                )
-
+            # loop that reads the questions from the QuestionsReader
             query = reader.read_next_question()
-        
-        f.close()
+            while query:
+                # aplies the tokenization to get the query_tokens
+                # Tokenizer returns a dictionary with
+
+                #     {
+                #         'term': {
+                #             'pub_id1': counter1,
+                #             'pub_id2': counter2,
+                #             'pub_id3': counter3,
+                #         },
+                #         ...
+                #     }
+
+                # We will only have one pub ID because we will address each query at a time
+                # so, after getting the result from tokenize we transform the return into
+
+                #     {
+                #         'term': counter,
+                #         ...
+                #     }
+
+                query_tokens = {
+                    token: pubs['1']
+                    for token, pubs in tokenizer.tokenize('1', query).items()
+                }
+
+                print(query_tokens)
+
+                results = self.search(index, query_tokens, top_k)
+
+                # write results to disk
+
+                f.write(" ".join(query)+"\n")
+                print(results)
+                for i, result in enumerate(results):
+                    f.write(
+                        f"#{i} - {result['doc_id']} | weight = {result['weight']}"
+                    )
+
+                query = reader.read_next_question()
+
 
     def compute_normal_index(self, posting_lists):
         """
@@ -261,9 +261,12 @@ class BM25Ranking(BaseSearcher):
         # n_documents -> total number of documents/publications
         # pubs_length -> dictionary containing the pmid as key and the length of the publications as value
         parameters = index.get_pubs_length()
-        avg_pub_length = parameters['avg_pub_length']
+        avg_pub_length = parameters['pub_avg_length']
         n_documents = parameters['n_documents']
         pubs_length = parameters['pubs_length']
+
+        print(avg_pub_length)
+        print(n_documents)
 
         # Iterate through query pairs of (tokens : term frequency)
         for query_token, query_token_tf in query_tokens.items():
@@ -293,6 +296,8 @@ class BM25Ranking(BaseSearcher):
 
         # Using heapq.nlargest to find the k best scored publications in decreasing order
         top_k_pubs = nlargest(top_k, pub_scores.keys(), key=lambda k: pub_scores[k])
+
+        #print(top_k_pubs)
 
         # Return top-k pmid : pub_score
         return { pmid : pub_scores[pmid] for pmid in top_k_pubs }
