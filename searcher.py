@@ -67,11 +67,8 @@ class BaseSearcher:
                 # Paginator variable counter
                 current_page = 0
 
-                print("\nResults:")
-
                 # Paginator (starts presenting page 1)
                 while True:
-                    print(current_page)
                     page_str = ""
                     for i, pub in enumerate(results_list[current_page*10:current_page*10+10]):
                         page_str += f"#{(current_page)*10+i+1} - pub_id = {pub[0]} | weight = {pub[1]}\n"
