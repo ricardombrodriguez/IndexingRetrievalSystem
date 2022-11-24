@@ -73,7 +73,8 @@ def engine_logic(args):
                        args.top_k,
                        args.reader,
                        args.tk,
-                       args.ranking)
+                       args.ranking,
+                       args.interactive)
         
     else:
         # this should be ensured by the argparser
@@ -121,19 +122,23 @@ def indexer_logic(path_to_collection,
     
     
     
-def searcher_logic(index_folder,
+def searcher_logic(
+                   index_folder,
                    path_to_questions,
                    output_file,
                    top_k,
                    reader_args,
                    tk_args,
-                   ranking_args):
+                   ranking_args,
+                   interactive
+                   ):
 
 
     reader = dynamically_init_reader(path_to_questions=path_to_questions,
                                     **reader_args.get_kwargs())
 
-    ranker = dynamically_init_searcher(**ranking_args.get_kwargs())
+    ranker = dynamically_init_searcher(interactive=interactive,
+                                    **ranking_args.get_kwargs())
 
     # load the index from disk
     index = BaseIndex.load_from_disk(index_folder)

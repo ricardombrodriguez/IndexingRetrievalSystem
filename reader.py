@@ -101,6 +101,8 @@ class QuestionsReader(Reader):
         """
         Check if file exists and open it
         """
+        if self.path_to_questions == "":
+            return
         if not os.path.exists(self.path_to_questions):
             raise FileNotFoundError
         if not os.path.isfile(self.path_to_questions):

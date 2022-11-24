@@ -3,7 +3,7 @@ Authors:
 Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
-import os
+from pypages import Paginator
 from heapq import nlargest
 from math import log10, sqrt
 from utils import dynamically_init_class
@@ -29,6 +29,13 @@ def dynamically_init_searcher(**kwargs):
 
 class BaseSearcher:
 
+    def __init__(self,
+                **kwargs):
+
+        self.interactive = False
+        if kwargs["interactive"]:
+            self.interactive = True
+
     def search(self, index, query_tokens, top_k):
         pass
 
@@ -37,32 +44,16 @@ class BaseSearcher:
         Function responsible for orchestrating the search process
         """
 
-        print("searching...")
+        if self.interactive:
+            
+            # Continue query interactive mode
+            cont = True
 
-        with open(output_file, 'w+') as f:
+            # Don't stop until cont = False
+            while cont:
 
-            # loop that reads the questions from the QuestionsReader
-            query = reader.read_next_question()
-            while query:
-                # aplies the tokenization to get the query_tokens
-                # Tokenizer returns a dictionary with
-
-                #     {
-                #         'term': {
-                #             'pub_id1': counter1,
-                #             'pub_id2': counter2,
-                #             'pub_id3': counter3,
-                #         },
-                #         ...
-                #     }
-
-                # We will only have one pub ID because we will address each query at a time
-                # so, after getting the result from tokenize we transform the return into
-
-                #     {
-                #         'term': counter,
-                #         ...
-                #     }
+                print("\n==================")
+                query = input("Insert the query: ").split()
 
                 query_tokens = {
                     token: pubs['1']
@@ -71,16 +62,95 @@ class BaseSearcher:
 
                 results = self.search(index, query_tokens, top_k)
 
-                # write results to disk
+                results_list = [ (pmid, score) for pmid,score in dict(results).items() ]
 
-                f.write(" ".join(query)+"\n")
-                for i, result in enumerate(results):
-                    f.write(
-                        f"#{i+1} - {result['doc_id']} | weight = {result['weight']}\n"
-                    )
-                f.write('\n')
+                # Paginator variable counter
+                current_page = 0
 
+                # Paginator (starts presenting page 1)
+                while True:
+                    page_str = ""
+                    for i, pub in enumerate(results_list[current_page*10:current_page*10+10]):
+                        page_str += f"#{(current_page)*10+i+1} - pub_id = {pub[0]} | weight = {pub[1]}\n"
+                    print(f"========= PAGE #{current_page+1} =========")
+                    print(page_str)
+                    
+                    command = input("[Commands]\nP - Go to previous page\nN - Go to next page\nE - Leave results page\nCommand: ")
+
+                    match command:
+                        case "P":
+                            current_page -= 1
+                            if current_page < 0:
+                                print("You're in the first page!")
+                                current_page = 0
+                        case "N":
+                            current_page += 1
+                            if current_page > top_k//10 - 1:
+                                print("You're in the last page!")
+                                current_page -= 1
+                        case "E":
+                            break
+                        case _:
+                            print("Command not found!")
+
+                while True:
+
+                    command = input("Do you want to keep querying? [Y/N]\nCommand: ")
+
+                    match command:
+                        case "Y":
+                            break
+                        case "N":
+                            cont = False
+                            break
+                        case _:
+                            print("Command not found!") 
+
+        else:
+
+            with open(output_file, 'w+') as f:
+
+                # loop that reads the questions from the QuestionsReader
                 query = reader.read_next_question()
+                while query:
+                    # aplies the tokenization to get the query_tokens
+                    # Tokenizer returns a dictionary with
+
+                    #     {
+                    #         'term': {
+                    #             'pub_id1': counter1,
+                    #             'pub_id2': counter2,
+                    #             'pub_id3': counter3,
+                    #         },
+                    #         ...
+                    #     }
+
+                    # We will only have one pub ID because we will address each query at a time
+                    # so, after getting the result from tokenize we transform the return into
+
+                    #     {
+                    #         'term': counter,
+                    #         ...
+                    #     }
+
+                    query_tokens = {
+                        token: pubs['1']
+                        for token, pubs in tokenizer.tokenize('1', query).items()
+                    }
+
+                    results = self.search(index, query_tokens, top_k)
+
+                    # write results to disk
+
+                    f.write(" ".join(query)+"\n")
+
+                    for i, pmid in enumerate(results):
+                        f.write(
+                            f"#{i+1} - {pmid} | weight = {results[pmid]}\n"
+                        )
+                    f.write('\n')
+
+                    query = reader.read_next_question()
 
 
     def compute_normal_index(self, posting_lists):
@@ -271,7 +341,7 @@ class TFIDFRanking(BaseSearcher):
                 'weight': weight,
                 'norm': doc_norms[doc_id]
             })
-        return results
+        return { result['doc_id'] : result['weight'] for result in results }
 
 class BM25Ranking(BaseSearcher):
     """
