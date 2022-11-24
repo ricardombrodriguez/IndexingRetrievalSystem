@@ -294,18 +294,26 @@ if __name__ == "__main__":
                                 type=str, 
                                 help='Folder where all the index related files will be loaded.')
 
-    searcher_parser.add_argument('path_to_questions', 
-                                type=str, 
-                                help='Path to the file that contains the question to be processed, one per line.')
-
-    searcher_parser.add_argument('output_file', 
-                                type=str, 
-                                help='File where the found documents will be returned for each question.')
-
     searcher_parser.add_argument('--top_k', 
                                 type=int,
                                 default=1000,
                                 help='Number maximum of documents that should be returned per question.')
+
+    searcher_parser.add_argument('--path_to_questions', 
+                                type=str, 
+                                help='Path to the file that contains the question to be processed, one per line.',
+                                default="",
+                                required=False)        
+
+    searcher_parser.add_argument('--output_file', 
+                                type=str, 
+                                help='File where the found documents will be returned for each question.',
+                                required=False)
+
+    searcher_parser.add_argument('--interactive', 
+                                action="store_true",
+                                help='The query is written in interactive mode and the results are presented in the terminal with pagination',
+                                required=False)
 
     # Searcher also specifies a reader
     # question reader
