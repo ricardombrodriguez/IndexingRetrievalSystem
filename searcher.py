@@ -69,17 +69,14 @@ class BaseSearcher:
                     for token, pubs in tokenizer.tokenize('1', query).items()
                 }
 
-                print(query_tokens)
-
                 results = self.search(index, query_tokens, top_k)
 
                 # write results to disk
 
                 f.write(" ".join(query)+"\n")
-                print(results)
-                for i, pmid in enumerate(results):
+                for i, result in enumerate(results):
                     f.write(
-                        f"#{i+1} - {pmid} | weight = {results[pmid]}\n"
+                        f"#{i+1} - {result['doc_id']} | weight = {result['weight']}\n"
                     )
                 f.write('\n')
 
@@ -114,6 +111,9 @@ class TFIDFRanking(BaseSearcher):
     def __init__(self, smart, **kwargs) -> None:
         super().__init__(**kwargs)
         self.smart = smart
+        self.pivot = None
+        # this should be tested, but for now we will use the value ranked as best in the paper
+        self.slope = 0.3
         print("init TFIDFRanking|", f"{smart=}")
         if kwargs:
             print(
@@ -173,15 +173,41 @@ class TFIDFRanking(BaseSearcher):
 
             return sqrt(weight_sum)
         if normalization_letter == 'u':
-            # Calculate pivoted unique
-            raise NotImplementedError
+            if self.pivot is None:
+                raise Exception("You cannot mix normalization methods")
+
+            return (1.0 - self.slope) * self.pivot + self.slope * len(weights)
         if normalization_letter == 'b':
             # Calculate byte size
             raise NotImplementedError
         else:
             raise NotImplementedError
 
-    def search(self, index, query_tokens, top_k, tokenizer):
+    def get_doc_norms(self, index, normal_index, normalization_letter):
+        """
+        Based on the normalization method returns a dictionary with
+        doc_id: norm
+        """
+
+        if normalization_letter == 'n':
+            return {doc_id: 1 for doc_id in normal_index.keys()}
+        if normalization_letter == 'c':
+            return index.read_norm_file()
+        if normalization_letter == 'u':
+            unique_counts = index.read_unique_counts_file()
+            self.pivot = sum([n_unique for _, n_unique in unique_counts.items()]) / len(unique_counts)
+            return {
+                doc_id: (1.0 - self.slope) * self.pivot + self.slope * n_unique
+                for doc_id, n_unique in unique_counts.items()
+            }
+        else:
+            raise NotImplementedError
+
+    def search(self, index, query_tokens, top_k):
+        """
+        Get the top_k documents for query
+        """
+
         # calc term frequency
         tokens_weights = {
             token: self.calc_term_frequency(frequency) for token, frequency in query_tokens.items()
@@ -196,12 +222,12 @@ class TFIDFRanking(BaseSearcher):
         # compute "normal" index
         normal_index = self.compute_normal_index(posting_lists)
 
-        # normalize doc weights
-        for doc_id, token_list in normal_index.items():
-            normal_index[doc_id]['normalized_weight'] = self.normalize_weights(
-                weights = [weight for _, weight in token_list.items()],
-                normalization_letter = self.smart.split('.')[0][2]
-            )
+        # get doc norms
+        doc_norms = self.get_doc_norms(
+            index = index,
+            normal_index = normal_index,
+            normalization_letter = self.smart.split('.')[0][2]
+        )
 
         # calc tokens weights
         for token, weight in tokens_weights.items():
@@ -209,8 +235,6 @@ class TFIDFRanking(BaseSearcher):
                 posting_list=posting_lists[token],
                 n_documents = int(index.n_documents)
             )
-
-        print(tokens_weights)
 
         # normalize query weights (in other words, get vector norm)
         query_normalized_weight = self.normalize_weights(
@@ -221,7 +245,6 @@ class TFIDFRanking(BaseSearcher):
         normalized_tokens={}
         for token, weight in tokens_weights.items():
             normalized_tokens[token] = weight/query_normalized_weight
-        print(normalized_tokens)
 
         # get results
         doc_weights = {}
@@ -233,7 +256,7 @@ class TFIDFRanking(BaseSearcher):
             for token, weight in tokens_weights.items():
                 if token not in doc_tokens:
                     continue
-                doc_weight += weight/query_normalized_weight * doc_tokens[token]/doc_tokens['normalized_weight']
+                doc_weight += weight/query_normalized_weight * doc_tokens[token]/doc_norms[doc_id]
             doc_weights[doc_id] = doc_weight
 
         # Now we sort the documents by weight and choose the top_k 
@@ -246,10 +269,8 @@ class TFIDFRanking(BaseSearcher):
             results.append({
                 'doc_id': doc_id,
                 'weight': weight,
-                'norm': normal_index[doc_id]['normalized_weight']
+                'norm': doc_norms[doc_id]
             })
-            print(f"{counter}: {doc_id} | weight={weight} | norm={normal_index[doc_id]['normalized_weight']} | tokens={normal_index[doc_id].keys()}")
-
         return results
 
 class BM25Ranking(BaseSearcher):

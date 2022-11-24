@@ -5,7 +5,7 @@ Ricardo Rodriguez - 98388
 """
 
 from time import time, strftime, gmtime
-from math import log10
+from math import log10, sqrt
 import gzip
 import os
 import psutil
@@ -51,7 +51,6 @@ class SPIMIIndexer(Indexer):
         self.token_threshold = token_threshold if token_threshold else 50000
         self.weight_method = None
         self.kwargs = kwargs
-        self.stemmer = ""
 
         print("init SPIMIIndexer|", f"{posting_threshold=}, {memory_threshold=}")
 
@@ -117,7 +116,10 @@ class SPIMIIndexer(Indexer):
 
             pub_terms = {}
 
-            print(f"Using {psutil.virtual_memory().percent}% of memory | {self._index.block_counter} blocks written", end="\r")
+            print(
+                f"Using {psutil.virtual_memory().percent}% of memory |" \
+                f" {self._index.block_counter} blocks written",
+                end="\x1b[1K\r")
 
             if psutil.virtual_memory().percent > self.memory_threshold:
                 self._index.write_to_disk(index_output_folder)
@@ -139,12 +141,26 @@ class SPIMIIndexer(Indexer):
 
         # Write metadata in index.txt file
         os.setxattr(
-            f'{index_output_folder}/index.txt', 'user.indexer_index',
-            f'{self.get_index_name()}'.encode('utf-8')
+            f'{index_output_folder}/index.txt', 'user.indexer_index', f'{self.get_index_name()}'
+            .encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_tokenizer', f'{tokenizer.get_class()}'
+            .encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_stopwords',
+            f'{tokenizer.stopwords_path if tokenizer.stopwords_path else ""}'
+            .encode('utf-8')
+        )
+        os.setxattr(
+            f'{index_output_folder}/index.txt', 'user.indexer_minL', f'{tokenizer.minL}'
+            .encode('utf-8')
         )
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_stemmer',
-            f'{self.stemmer}'.encode('utf-8')
+            f'{tokenizer.stemmer if tokenizer.stemmer else ""}'
+            .encode('utf-8')
         )
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_n_documents',
@@ -363,6 +379,8 @@ class InvertedIndex(BaseIndex):
 
         current_term = None
 
+        doc_index = {}
+
         while files_ended < len(files):
 
             min_index = lines.index(min(lines))
@@ -376,18 +394,35 @@ class InvertedIndex(BaseIndex):
 
             if current_term != recent_term:
 
-                # if func is none at this point, then we may assume that the document frequency chosen is the no (n) one
+                # if func is none at this point, then we may assume that the 
+                # document frequency chosen is the no (n) one
                 posting_list = ""
                 if recent_term and func is not None:
-                    # merge_line is "<term> <doc1>:<term_frequency>,<doc2>:<term_frequency>,<doc3>:<term_frequency>,"
+                    # merge_line is "<term> <doc1>:<term_frequency>,<doc2>:<term_frequency>,..."
                     # we want tfidf, so we have to multiply tf with idf
                     idf = func(len(recent_postings.split(",")))
                     for posting in recent_postings.split(","):
                         posting_list += f"{posting.split(':', 1)[0]}:{float(posting.split(':', 1)[1]) * idf},"
-
-                    final_block_file.write(f"\n{recent_term} {posting_list}".encode('utf-8'))
                 else:
-                    final_block_file.write(f"\n{recent_term} {recent_postings}".encode('utf-8'))
+                    posting_list = recent_postings
+
+                # normalization calcs
+                if recent_term and weight_method == "tfidf":
+                    if kwargs["tfidf"]["smart"][2] == 'c':
+                        for posting in posting_list.split(','):
+                            doc_id, weight = posting.split(':')
+                            if doc_id not in doc_index:
+                                doc_index[doc_id] = 0
+                            doc_index[doc_id] += float(weight) ** 2
+                    elif kwargs["tfidf"]["smart"][2] == 'u':
+                        for posting in posting_list.split(','):
+                            # in the end we want to know how many unique terms are in each doc
+                            doc_id = posting.split(':')[0]
+                            if doc_id not in doc_index:
+                                doc_index[doc_id] = 0
+                            doc_index[doc_id] += 1
+
+                final_block_file.write(f"\n{recent_term} {posting_list}".encode('utf-8'))
 
                 block_lines += 1
                 n_tokens += 1
@@ -450,6 +485,21 @@ class InvertedIndex(BaseIndex):
 
         # Add the size of the block file to the index size
         index_size += os.path.getsize(f"{folder}/final_block_{final_block_counter}.txt")
+
+        # normalization calcs
+        if weight_method == "tfidf":
+            if kwargs["tfidf"]["smart"][2] == 'c':
+                with open(f"{folder}/doc_norms.txt", "w") as norm_file:
+                    for doc_id, weight in doc_index.items():
+                        norm_file.write(
+                            f"{doc_id} {sqrt(weight)}\n"
+                        )
+            elif kwargs["tfidf"]["smart"][2] == 'u':
+                with open(f"{folder}/doc_unique_counts.txt", "w") as counts_file:
+                    for doc_id, n_unique in doc_index.items():
+                        counts_file.write(
+                            f"{doc_id} {n_unique}\n"
+                        )
 
         print("Merge complete...")
 
@@ -547,6 +597,56 @@ class InvertedIndexSearcher(BaseIndex):
             line = index_file.readline().strip()
 
         return index
+
+    def read_norm_file(self):
+        """
+        This function only works when the normalization method is cosine
+        It reads the file that contains the sqrt(token_weigth**2 for every token in doc)
+        """
+        if self.weight_method != 'tfidf' or self.smart.split('.')[0][2] != 'c':
+            raise Exception(
+                'read_norm_file function can only be called when the normalization is based on cosine'
+            )
+
+        if not os.path.exists(f"{self.path_to_folder}/doc_norms.txt"):
+            raise FileNotFoundError
+
+        doc_norms = {}
+        with open(f"{self.path_to_folder}/doc_norms.txt") as norm_file:
+            line = norm_file.readline()
+            while line != "" and line is not None:
+                doc_id, weight = line.split(' ')
+
+                doc_norms[doc_id] = float(weight)
+
+                line = norm_file.readline()
+
+        return doc_norms
+
+    def read_unique_counts_file(self):
+        """
+        This function only works when the normalization method is pivoted unique
+        It reads the file that contains the number of unique tokens in each document
+        """
+        if self.weight_method != 'tfidf' or self.smart.split('.')[0][2] != 'u':
+            raise Exception(
+                'read_norm_file function can only be called when the normalization is based on pivoted unique'
+            )
+
+        if not os.path.exists(f"{self.path_to_folder}/doc_unique_counts.txt"):
+            raise FileNotFoundError
+
+        unique_counts = {}
+        with open(f"{self.path_to_folder}/doc_unique_counts.txt") as norm_file:
+            line = norm_file.readline()
+            while line != "" and line is not None:
+                doc_id, count = line.split(' ')
+
+                unique_counts[doc_id] = int(count.strip())
+
+                line = norm_file.readline()
+
+        return unique_counts
 
     def find_in_index(self, token):
         """
