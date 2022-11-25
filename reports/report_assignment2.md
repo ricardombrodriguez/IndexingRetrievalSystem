@@ -17,7 +17,7 @@ The value of tfidf increases with the number of times a word appears in the docu
 
 To build an index with some pre-calculated tfidf values, we only need to know which variation we are using in SMART notation. After tokenizing a document's terms we calculate the term frequency for every term according to the chosen variation (the term frequency variation is given by the first letter in the SMART notation).
 
-Duringf the merge process, whenwe already know how many documents exist in the collection, we calculate every term's weight (tf * idf). tf has already been calculated before, idf is calculated before calculating the weight. Our index's final blocks contain an inverted index, but the posting list besides having the document id also stores the term's weight for that document.
+During the merge process, when we already know how many documents exist in the collection, we calculate every term's weight (tf * idf). tf has already been calculated before, idf is calculated before calculating the weight. Our index's final blocks contain an inverted index, but the posting list besides having the document id also stores the term's weight for that document.
 
 - Cosine
 
@@ -139,3 +139,38 @@ python3 main.py indexer collections/pubmed_2022_tiny.jsonl.gz indexes/bm25/pubme
 ```
 
 ### Searcher
+
+- TFIDF
+
+```bash
+python3 main.py searcher <index_file> \
+--top_k <TOP_K> \
+--path_to_questions questions/questions1.txt \
+--output_file results.txt \
+ranking.tfidf --ranking.tfidf.smart <smart_notation>
+```
+
+Example of running the searcher with query file input:
+![Searcher in file input mode](lnc_ltc_results_file.png)
+
+
+```bash
+python3 main.py searcher <index_file>\
+--top_k <TOP_K> \
+--interactive \
+ranking.tfidf --ranking.tfidf.smart <smart_notation>
+```
+
+Example of running the searcher in interactive mode (with pagination):
+![Searcher in interactive mode](lnc_ltc_interactive.png)
+
+In **interactive mode**, the user doesn't need to give the program a file containing all the queries. Instead, when using the ```bash --interactive``` argument, the program asks the user to insert the query manually and is presented with a paginator containing all the results (10 per page). The number of pages in the paginator depends on the value of the *top_k* argument and the user is allowed to go to the previous/next page, if it's in the defined limit.
+
+- BM25
+
+```bash
+python3 main.py searcher pubmedSPIMIindexTiny \
+--top_k <TOP_K> \
+--interactive \
+ranking.bm25 --ranking.bm25.k1 <k\1> --ranking.bm25.b <b>
+```
