@@ -44,7 +44,7 @@ After finding the path to the final block that may contain the token we are look
 Now we read the normalization files (doc_norms.txt for cosine or doc_unique_counts.txt for pivoted unique) and calculate the final weight of the document for that query:
 For a given document d and a query q
 ```math
-\sum_{i=0} a_t_i b_k
+$$\sum_{i=0} a_t_i b_k
 ```
 
 ### Results
