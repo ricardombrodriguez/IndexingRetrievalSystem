@@ -47,6 +47,29 @@ For a given document d and a query q we sum the product of each token's weight i
 
 ### Results
 
+#### Indexing
+
+- lnc.ltc
+
+| File Size | Total Indexing Time | Merging Time | Index Size on Disk | Index File Size | Number of Temporary Files | Number of Terms |
+|---|:---:|---|:---:|:---:|:---:|---:|
+| Tiny (134,4 MB) | 00:06:07 | 44s | 67.32154750823975 MB | 0.0009365081787109375 MB | 51 | 388103 |
+| Small (1,4 GB) | 01:06:27 | 601s | 610.2258224487305 MB | 0.00469970703125 MB | 508 | 1883692 |
+
+- lnu.ltu
+
+| File Size | Total Indexing Time | Merging Time | Index Size on Disk | Index File Size | Number of Temporary Files | Number of Terms |
+|---|:---:|---|:---:|:---:|:---:|---:|
+| Tiny (134,4 MB) | 00:06:06 | 40.59485197067261 | 67.32154750823975 MB | 0.0009365081787109375 MB | 51 | 388103 |
+| Small (1,4 GB) | 01:08:16 | 574.1285059452057 | 610.2258224487305 MB | 0.00469970703125 MB | 508 | 1883692 |
+
+- bm25
+
+| File Size | Total Indexing Time | Merging Time | Index Size on Disk | Index File Size | Number of Temporary Files | Number of Terms |
+|---|:---:|---|:---:|:---:|:---:|---:|
+| Tiny (134,4 MB) | 00:05:41 | 26.31964349746704 | 61.458309173583984 MB | 0.0008993148803710938 MB | 51 | 388103 |
+| Small (1,4 GB) | 01:17:27 | 399.9907560348511 | 556.2714080810547 MB | 0.004519462585449219 MB | 508 | 1883692 |
+
 ## BM25
 
 The **Okapi BM25** ranking function is a successor to the **TF-IDF** method explained above. It's main advantage over TF-IDF is giving importance to document lenght. For example, if document A and B both have 300 words but document A mentions 'medicine' one time and document B mentions 'medicine' five times, we consider document B has being the more relevant one since document length is equal but the term 'medicine' appears more times in document B than in document A. However, if document A still has 300 words but document B has 10000 words (an abnormal number of terms), document B would be less relevant than document A for the term 'medicine'. This is because although 'medicine' appears more times in document B, it still has a much bigger document length than document A, being more likely to contain more 'medicine' terms. Thus, 3 'medicine' terms in a 300 word document is more relevant than 5 'medicine' terms in a 10000 word document.
