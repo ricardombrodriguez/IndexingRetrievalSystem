@@ -151,6 +151,7 @@ ranking.tfidf --ranking.tfidf.smart <smart_notation>
 ```
 
 Example of running the searcher with query file input:
+
 ![Searcher in file input mode](lnc_ltc_results_file.png)
 
 
@@ -162,6 +163,7 @@ ranking.tfidf --ranking.tfidf.smart <smart_notation>
 ```
 
 Example of running the searcher in interactive mode (with pagination):
+
 ![Searcher in interactive mode](lnc_ltc_interactive.png)
 
 In **interactive mode**, the user doesn't need to give the program a file containing all the queries. Instead, when using the ```bash --interactive``` argument, the program asks the user to insert the query manually and is presented with a paginator containing all the results (10 per page). The number of pages in the paginator depends on the value of the *top_k* argument and the user is allowed to go to the previous/next page, if it's in the defined limit.
