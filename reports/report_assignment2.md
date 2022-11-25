@@ -42,11 +42,8 @@ first_token last_token path_to_final_block_3
 
 After finding the path to the final block that may contain the token we are looking for (first_token >= token >= last_token), we read that block and use binary search to find the token. 
 Now we read the normalization files (doc_norms.txt for cosine or doc_unique_counts.txt for pivoted unique) and calculate the final weight of the document for that query:
-For a given document d and a query q
 
-```math
-$$\sum_{i=0} a_t_i b_k
-```
+For a given document d and a query q we sum the product of each token's weight in document and in query (weight(token, doc_id) * weight(token, query)) and we divide the value by the product of the normalizarion value of the document with the normalization value of the query.
 
 ### Results
 
