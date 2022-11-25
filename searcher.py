@@ -3,7 +3,6 @@ Authors:
 Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
-from pypages import Paginator
 from heapq import nlargest
 from math import log10, sqrt
 from utils import dynamically_init_class
@@ -74,7 +73,7 @@ class BaseSearcher:
                         page_str += f"#{(current_page)*10+i+1} - pub_id = {pub[0]} | weight = {pub[1]}\n"
                     print(f"========= PAGE #{current_page+1} =========")
                     print(page_str)
-                    
+
                     command = input("[Commands]\nP - Go to previous page\nN - Go to next page\nE - Leave results page\nCommand: ")
 
                     match command:

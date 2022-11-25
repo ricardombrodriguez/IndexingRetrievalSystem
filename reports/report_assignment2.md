@@ -10,13 +10,44 @@ Additionally, we need to implement the search component of the retrieval system.
 
 ## TFIDF
 
+The **term frequency-inverse document frequency** is used in information retrieval as a numerical statistic that reflects the importance of a word to a document in a collection. It is often used as a weighting factor for information retrieval searches.
+The value of tfidf increases with the number of times a word appears in the document, but is offset by the number of documents in the collection that contain the word. This helps adjusting for the fact that some words are more usual in documents than others. There are several variations of this weighting scheme and, even though we will only present two of them (lnc.ltc and lnu.ltu) our code base also supports other variations and we can easily develop other term frequency or inverse document frequency schemes.
+
 ### Indexing
+
+To build an index with some pre-calculated tfidf values, we only need to know which variation we are using in SMART notation. After tokenizing a document's terms we calculate the term frequency for every term according to the chosen variation (the term frequency variation is given by the first letter in the SMART notation).
+
+Duringf the merge process, whenwe already know how many documents exist in the collection, we calculate every term's weight (tf * idf). tf has already been calculated before, idf is calculated before calculating the weight. Our index's final blocks contain an inverted index, but the posting list besides having the document id also stores the term's weight for that document.
+
+- Cosine
+
+If the normalization method is cosine we create a normal index (not inverted) and during the merge process we map each document's id to the sum of the square of each token's weight (if present in the said document). After finishing merge we write the index to a txt file, but while writing line by line we calculate the square root of the previously calculated sum for each document.
+
+- Pivoted Unique
+
+The Pivoted Unique normalization works very similarly to Cosine. During the merge process we build a normal index where we map every doc-id to the respective count of unique terms. In the end we write this dictionary to a file so we can read and use it during the search.
 
 ### Searching
 
+After reading and tokenizing the query we calculate the tf and idf accordingly to the SMART notation an then the token's weight (tf * idf). Then we search for that token in the index, since we have several blocks with the index we search first the index.txt file using binary search so we know which block may contain that token.
+
+```
+index.txt
+
+first_token last_token path_to_final_block_0
+first_token last_token path_to_final_block_1
+first_token last_token path_to_final_block_2
+first_token last_token path_to_final_block_3
+```
+
+After finding the path to the final block that may contain the token we are looking for (first_token >= token >= last_token), we read that block and use binary search to find the token. 
+Now we read the normalization files (doc_norms.txt for cosine or doc_unique_counts.txt for pivoted unique) and calculate the final weight of the document for that query:
+For a given document d and a query q
+```math
+\sum_{i=0} a_t_i b_k
+```
+
 ### Results
-
-
 
 ## BM25
 
@@ -48,3 +79,42 @@ In the end, the publications scores are established and the program is ready to 
 
 
 ### Results
+
+## How to use
+
+### Indexer
+
+- TFIDF
+
+```bash
+python3 main.py indexer <path_to_collection> <output_folder> \
+--tk.minL <min_length> \
+--tk.stemmer <stemmer> \
+--indexer.posting_threshold <threshold> \
+--indexer.token_threshold <threshold> \
+--indexer.tfidf.cache_in_disk \
+--indexer.tfidf.smart <smart_notation>
+```
+
+Example:
+```bash
+python3 main.py indexer collections/pubmed_2022_tiny.jsonl.gz indexes/lnc_ltc/pubmedSPIMIindexTiny \
+--tk.minL 2 \
+--tk.stemmer potterNLTK \
+--indexer.posting_threshold 30000 \
+--indexer.token_threshold 30000 \
+--indexer.tfidf.cache_in_disk \
+--indexer.tfidf.smart lnc.ltc
+```
+
+- BM25
+
+```bash
+python3 main.py indexer collections/pubmed_2022_tiny.jsonl.gz indexes/bm25/pubmedSPIMIindexTiny \
+--tk.minL 2 \
+--tk.stemmer potterNLTK \
+--indexer.token_threshold 30000 \
+--indexer.bm25.cache_in_disk
+```
+
+### Searcher
