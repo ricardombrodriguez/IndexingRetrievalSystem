@@ -52,10 +52,10 @@ class PubMedReader(Reader):
             return None, None # fim do ficheiro
 
         pub_json = json.loads(line)
-        pub_terms = pub_json['title'].split() + pub_json['abstract'].split()
         pmid = pub_json['pmid']
+        pub_terms = pub_json['title'].split() + pub_json['abstract'].split()
 
-        return pmid, pub_terms            # key -> term | value -> { pmid : count }
+        return pmid, pub_terms
 
     def extract_file(self):
         self.file = gzip.open(self.path_to_collection, mode="rt")

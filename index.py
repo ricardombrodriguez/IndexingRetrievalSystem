@@ -96,7 +96,7 @@ class SPIMIIndexer(Indexer):
                     # Calculate log ave
                     raise NotImplementedError
             elif self.weight_method == 'bm25':
-                pub_tokens = sum([count for token, dic in tokens.items() for count in dic.values()])
+                pub_tokens = sum([len(positions_list) for token, dic in tokens.items() for positions_list in dic.values()])
                 self.pub_length[pmid] = pub_tokens
                 self.pub_total_tokens += pub_tokens
 
@@ -104,11 +104,11 @@ class SPIMIIndexer(Indexer):
                 self._index.add_term(
                     token,
                     doc_id,
-                    counter,
+                    len(positions_list),
                     index_output_folder=index_output_folder
                 )
                 for token, data in tokens.items()
-                for doc_id, counter in data.items()
+                for doc_id, positions_list in data.items()
             ] # add terms to index
 
             pub_terms = {}
