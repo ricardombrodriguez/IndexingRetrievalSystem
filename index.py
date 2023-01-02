@@ -60,13 +60,10 @@ class SPIMIIndexer(Indexer):
             print(f"Using tfidf - {self.smart}")
         elif kwargs["bm25"]["cache_in_disk"]:
             self.weight_method = 'bm25'
-            # self.bm25_k1 = kwargs["bm25"]["k1"]
-            # self.bm25_b = kwargs["bm25"]["b"]
             self.pub_length = {}
             self.pub_total_tokens = 0
             self.pub_avg_length = 0
             print("Using bm25")
-            # print(f"Using bm25 - k1 = {self.bm25_k1}; b = {self.bm25_b}")
 
     def build_index(self, reader, tokenizer, index_output_folder):
         print("Indexing some documents...")
@@ -99,7 +96,7 @@ class SPIMIIndexer(Indexer):
                     # Calculate log ave
                     raise NotImplementedError
             elif self.weight_method == 'bm25':
-                pub_tokens = sum([count for token, dic in tokens.items() for count in dic.values()])
+                pub_tokens = sum([len(positions_list) for token, dic in tokens.items() for positions_list in dic.values()])
                 self.pub_length[pmid] = pub_tokens
                 self.pub_total_tokens += pub_tokens
 
@@ -107,11 +104,11 @@ class SPIMIIndexer(Indexer):
                 self._index.add_term(
                     token,
                     doc_id,
-                    counter,
+                    len(positions_list),
                     index_output_folder=index_output_folder
                 )
                 for token, data in tokens.items()
-                for doc_id, counter in data.items()
+                for doc_id, positions_list in data.items()
             ] # add terms to index
 
             pub_terms = {}
@@ -190,15 +187,6 @@ class SPIMIIndexer(Indexer):
                 f'{self.smart}'.encode('utf-8')
             )
         elif self.weight_method == 'bm25':
-
-            # os.setxattr(
-            #     f'{index_output_folder}/index.txt', 'user.indexer_k1', f'{self.bm25_k1}'
-            #     .encode('utf-8')
-            # )
-            # os.setxattr(
-            #     f'{index_output_folder}/index.txt', 'user.indexer_b', f'{self.bm25_b}'
-            #     .encode('utf-8')
-            # )
 
             # store pub_length dictionary | { pub_id : pub_length }
             with open(f"{index_output_folder}/pubs_length.txt", "wb") as f:
@@ -564,12 +552,6 @@ class InvertedIndexSearcher(BaseIndex):
                 f"{self.path_to_folder}/index.txt", 'user.indexer_smart'
             ).decode('utf-8')
         elif self.weight_method == 'bm25':
-            # self.bm25_k1 = os.getxattr(
-            #     f"{self.path_to_folder}/index.txt", 'user.indexer_k1'
-            # ).decode('utf-8')
-            # self.bm25_b = os.getxattr(
-            #     f"{self.path_to_folder}/index.txt", 'user.indexer_b'
-            # ).decode('utf-8')
             pass
         else:
             raise NotImplementedError

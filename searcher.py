@@ -410,7 +410,7 @@ class BM25Ranking(BaseSearcher):
         """
         coefficient = idf
         nominator = tf * (k1 + 1)
-        denominator = tf + k1 * (1 - b + b * (int(pub_length)/avg_pub_length) )
+        denominator = tf + k1 * ( (1 - b) + b * (int(pub_length)/avg_pub_length) )
         return coefficient * ( nominator / denominator )
 
     def calculate_idf(self, postings_list, n_documents):
@@ -418,5 +418,5 @@ class BM25Ranking(BaseSearcher):
         Calculates document frequency and then the inverted document frequency
         """
         df = len(postings_list)
-        idf = log10( int(n_documents) / ( 1 + df ) )
+        idf = log10( int(n_documents) / df )
         return idf

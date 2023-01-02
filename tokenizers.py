@@ -22,6 +22,7 @@ class Tokenizer:
 
         # Lowercase, remove ponctuation, parentheses, numbers, and replace
         filtered_terms = []
+        counter = 0
         for term in terms:
 
             lower_term = term.lower()
@@ -29,24 +30,25 @@ class Tokenizer:
             # of the hiphens (removed at the beginning)
             filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')
 
-            if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL:
+            if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL or filtered_term in self.stopwords:
                 continue
 
             if lower_term != filtered_term:
                 for splitted_term in filtered_term.split(' '):
-                    if splitted_term and splitted_term.strip() != "" and len(splitted_term) > self.minL:
-                        filtered_terms.append(splitted_term)
+                    if splitted_term and splitted_term.strip() != "" and len(splitted_term) > self.minL or splitted_term in self.stopwords:
+                        stem_t = self.stemmer_obj.stem(splitted_term) if self.stemmer else splitted_term
+                        filtered_terms.append(stem_t)
             else:
-                filtered_terms.append(filtered_term)
+                stem_t = self.stemmer_obj.stem(filtered_term) if self.stemmer else filtered_term
+                filtered_terms.append(stem_t)
 
         tokens = {}
-        for term in filtered_terms:
-            if term not in self.stopwords:
-                stem_t = self.stemmer_obj.stem(term) if self.stemmer else term
-                if stem_t not in tokens:
-                    tokens[stem_t] = { pub_id : 1 }
-                else:
-                    tokens[stem_t][pub_id] += 1
+        
+        for token in filtered_terms:
+            if term not in tokens:
+                tokens[token] = { pub_id : [filtered_terms.index(token)] }
+            else:
+                tokens[token][pub_id] += [filtered_terms.index(token)]
 
         return tokens
 
