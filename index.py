@@ -321,7 +321,10 @@ class InvertedIndex(BaseIndex):
         f = gzip.GzipFile(f"{folder}/block_{self.block_counter}.txt", "wb") # to read use the same line with rb
         self.filenames.append(f"{folder}/block_{self.block_counter}.txt")
         for term, posting in sorted_index.items():
-            f.write(f"{term} {','.join([ str(pmid) + ':' + str(tf) for pmid, tf in posting.items()])}\n".encode("utf-8"))
+            f.write(
+                f"{term} {','.join([ str(pmid) + ':' + str(tf) for pmid, tf in posting.items()])}\n"
+                .encode("utf-8")
+            )
         f.close()
         self.block_counter += 1
 
@@ -335,7 +338,9 @@ class InvertedIndex(BaseIndex):
         # and we will read the next line of the file that we appended
         # we will do this until we reach the end of all the files
 
-        files_ended = 0 # when this variable is equal to the number of files, it means we have already read all the files
+        # when this variable is equal to the number of files,
+        # it means we have already read all the files
+        files_ended = 0
 
         # We will create a file object for each file
         files = [gzip.GzipFile(filename, "rb") for filename in self.filenames]
@@ -346,9 +351,10 @@ class InvertedIndex(BaseIndex):
         # each time we create a new block, we will increment this variable
         final_block_counter = 0
         # We will create a file object for the final block file
-        final_block_file = gzip.GzipFile(f"{folder}/final_block_{final_block_counter}.txt", "wb")
+        final_block_file = open(f"{folder}/final_block_{final_block_counter}.txt", "w")
 
-        # These variables will hold the first and last term in a block so we can use them to create the index file
+        # These variables will hold the first and last term in a block so we can use 
+        # them to create the index file
         first_term = None
 
         # number of lines in a block
@@ -394,7 +400,7 @@ class InvertedIndex(BaseIndex):
 
             if current_term != recent_term:
 
-                # if func is none at this point, then we may assume that the 
+                # if func is none at this point, then we may assume that the
                 # document frequency chosen is the no (n) one
                 posting_list = ""
                 if recent_term and func is not None:
@@ -422,7 +428,7 @@ class InvertedIndex(BaseIndex):
                                 doc_index[doc_id] = 0
                             doc_index[doc_id] += 1
 
-                final_block_file.write(f"\n{recent_term} {posting_list}".encode('utf-8'))
+                final_block_file.write(f"\n{recent_term} {posting_list}")
 
                 block_lines += 1
                 n_tokens += 1
@@ -448,8 +454,8 @@ class InvertedIndex(BaseIndex):
 
                     # Create a new block file
                     final_block_counter += 1
-                    final_block_file = gzip.GzipFile(
-                        f"{folder}/final_block_{final_block_counter}.txt", "wb"
+                    final_block_file = open(
+                        f"{folder}/final_block_{final_block_counter}.txt", "w"
                     )
 
                     # We need to reset the variables
