@@ -95,4 +95,3 @@ class PubMedTokenizer(Tokenizer):
         Return class name
         """
         return self.__class__.__name__
-        

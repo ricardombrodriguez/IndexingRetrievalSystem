@@ -80,6 +80,8 @@ class SPIMIIndexer(Indexer):
 
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
+            #print(tokens)
+
             if self.weight_method == 'tfidf':
                 if self.smart[0] == 'l':
                     # Calculate logarithm of term frequency
@@ -96,7 +98,7 @@ class SPIMIIndexer(Indexer):
                     # Calculate log ave
                     raise NotImplementedError
             elif self.weight_method == 'bm25':
-                pub_tokens = sum([len(positions_list) for token, dic in tokens.items() for positions_list in dic.values()])
+                pub_tokens = sum([count for token, dic in tokens.items() for count in dic.values()])
                 self.pub_length[pmid] = pub_tokens
                 self.pub_total_tokens += pub_tokens
 
@@ -104,21 +106,22 @@ class SPIMIIndexer(Indexer):
                 self._index.add_term(
                     token,
                     doc_id,
-                    len(positions_list),
+                    counter,
                     index_output_folder=index_output_folder
                 )
                 for token, data in tokens.items()
-                for doc_id, positions_list in data.items()
+                for doc_id, counter in data.items()
             ] # add terms to index
 
             pub_terms = {}
 
+            mem_percentage = psutil.virtual_memory().percent
             print(
-                f"Using {psutil.virtual_memory().percent}% of memory |" \
+                f"Using {mem_percentage}% of memory |" \
                 f" {self._index.block_counter} blocks written",
-                end="\x1b[1K\r")
+                end="\r")
 
-            if psutil.virtual_memory().percent > self.memory_threshold:
+            if mem_percentage > self.memory_threshold:
                 self._index.write_to_disk(index_output_folder)
                 self._index.clean_index()
 
@@ -306,13 +309,10 @@ class InvertedIndex(BaseIndex):
         sorted_index = {k: self.posting_list[k] for k in sorted(self.posting_list)}
 
         # Then we write it to disk
-        f = gzip.GzipFile(f"{folder}/block_{self.block_counter}.txt", "wb") # to read use the same line with rb
+        f = open(f"{folder}/block_{self.block_counter}.txt", "wb") # to read use the same line with rb
         self.filenames.append(f"{folder}/block_{self.block_counter}.txt")
         for term, posting in sorted_index.items():
-            f.write(
-                f"{term} {','.join([ str(pmid) + ':' + str(tf) for pmid, tf in posting.items()])}\n"
-                .encode("utf-8")
-            )
+            f.write(f"{term} {','.join([ str(pmid) + ':' + str(tf) for pmid, tf in posting.items()])}\n".encode("utf-8"))
         f.close()
         self.block_counter += 1
 
@@ -326,12 +326,10 @@ class InvertedIndex(BaseIndex):
         # and we will read the next line of the file that we appended
         # we will do this until we reach the end of all the files
 
-        # when this variable is equal to the number of files,
-        # it means we have already read all the files
-        files_ended = 0
+        files_ended = 0 # when this variable is equal to the number of files, it means we have already read all the files
 
         # We will create a file object for each file
-        files = [gzip.GzipFile(filename, "rb") for filename in self.filenames]
+        files = [open(filename, "rb") for filename in self.filenames]
 
         # We will read the first line of each file
         lines = [file.readline().decode("utf-8").strip() for file in files]
@@ -341,8 +339,7 @@ class InvertedIndex(BaseIndex):
         # We will create a file object for the final block file
         final_block_file = open(f"{folder}/final_block_{final_block_counter}.txt", "w")
 
-        # These variables will hold the first and last term in a block so we can use 
-        # them to create the index file
+        # These variables will hold the first and last term in a block so we can use them to create the index file
         first_term = None
 
         # number of lines in a block
@@ -388,7 +385,7 @@ class InvertedIndex(BaseIndex):
 
             if current_term != recent_term:
 
-                # if func is none at this point, then we may assume that the
+                # if func is none at this point, then we may assume that the 
                 # document frequency chosen is the no (n) one
                 posting_list = ""
                 if recent_term and func is not None:
@@ -673,7 +670,7 @@ class InvertedIndexSearcher(BaseIndex):
         Returns the postings list if the token is in the block file.
         """
         block_lines = []
-        with gzip.open(block_path, 'rb') as block:
+        with open(block_path, 'r') as block:
             block_lines = block.readlines()
 
         low = 1
@@ -710,7 +707,7 @@ class InvertedIndexSearcher(BaseIndex):
         Iterates through all lines in the block and searches for the token
         """
 
-        with gzip.open(block_path, 'rb') as block:
+        with open(block_path, 'r') as block:
             for line in block:
                 if line.decode('utf-8').strip() == "":
                     continue
