@@ -768,12 +768,12 @@ class InvertedIndexSearcher(BaseIndex):
 
         with open(block_path, 'r') as block:
             for line in block:
-                if line.decode('utf-8').strip() == "":
+                if line.strip() == "":
                     continue
 
-                block_token = line.decode('utf-8').strip().split(" ")[0]
+                block_token = line.strip().split(" ")[0]
                 if block_token == token:
-                    return line.decode('utf-8').strip().split(" ")[1]
+                    return line.strip().split(" ")[1]
 
                 if block_token > token:
                     return None
