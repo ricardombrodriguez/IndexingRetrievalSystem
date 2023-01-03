@@ -17,40 +17,8 @@ class Tokenizer:
     def __init__(self, **kwargs):
         super().__init__()
 
-
     def tokenize(self, pub_id, terms):
-
-        # Lowercase, remove ponctuation, parentheses, numbers, and replace
-        filtered_terms = []
-        counter = 0
-        for term in terms:
-
-            lower_term = term.lower()
-            # remove all non alphanumeric characters for the exception
-            # of the hiphens (removed at the beginning)
-            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')
-
-            if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL or filtered_term in self.stopwords:
-                continue
-
-            if lower_term != filtered_term:
-                for splitted_term in filtered_term.split(' '):
-                    if splitted_term and splitted_term.strip() != "" and len(splitted_term) > self.minL or splitted_term in self.stopwords:
-                        stem_t = self.stemmer_obj.stem(splitted_term) if self.stemmer else splitted_term
-                        filtered_terms.append(stem_t)
-            else:
-                stem_t = self.stemmer_obj.stem(filtered_term) if self.stemmer else filtered_term
-                filtered_terms.append(stem_t)
-
-        tokens = {}
-        
-        for token in filtered_terms:
-            if term not in tokens:
-                tokens[token] = { pub_id : [filtered_terms.index(token)] }
-            else:
-                tokens[token][pub_id] += [filtered_terms.index(token)]
-
-        return tokens
+        return NotImplementedError
 
     def get_stemmer(self, stemmer_name):
         # This function is used to get the stemmer object
@@ -82,7 +50,7 @@ class PubMedTokenizer(Tokenizer):
         self.stopwords = set()
         if self.stopwords_path and exists(self.stopwords_path):
             stopwords_file = open(self.stopwords_path, 'r')
-            self.stopwords = [word.strip() for word in stopwords_file.readlines()]
+            self.stopwords = {word.strip() for word in stopwords_file.readlines()}
             stopwords_file.close()
         elif self.stopwords_path and not exists(self.stopwords_path): 
             raise FileNotFoundError(f"Stopwords file not found: {self.stopwords_path}")
@@ -95,3 +63,44 @@ class PubMedTokenizer(Tokenizer):
         Return class name
         """
         return self.__class__.__name__
+
+    def tokenize(self, pub_id, terms):
+        filtered_terms = []
+
+        for term in terms:
+
+            lower_term = term.lower()
+            # remove all non alphanumeric characters for the exception
+            # of the hiphens (removed if at the beginning)
+            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-').strip()
+
+            # the filtered term must have more than minL chars
+            # and cannot be in the list of stopwords
+            if (not filtered_term or filtered_term == ""
+                or len(filtered_term) < self.minL or filtered_term in self.stopwords):
+                continue
+
+            # has the lower_term variable end up being divided into two or more terms?
+            if lower_term != filtered_term:
+                for splitted_term in filtered_term.split(' '):
+                    if (
+                        splitted_term and splitted_term.strip() != ""
+                        and len(splitted_term) > self.minL or splitted_term in self.stopwords
+                    ):
+                        stem_t = self.stemmer_obj.stem(splitted_term) if self.stemmer else splitted_term.strip()
+                        filtered_terms.append(stem_t)
+            else:
+                stem_t = self.stemmer_obj.stem(filtered_term) if self.stemmer else filtered_term
+                filtered_terms.append(stem_t)
+
+        tokens = {}
+        # tokens will contain a dictionary with
+        # {token1: {pub1: <list of positions>, pub2: <list of positions>, ...}, token2: ... }
+        # the term frequency (TF) is given by the length of the list of positions
+        for token in filtered_terms:
+            if token not in tokens:
+                tokens[token] = { pub_id : [filtered_terms.index(token)] }
+            else:
+                tokens[token][pub_id] += [filtered_terms.index(token)]
+
+        return tokens
