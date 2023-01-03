@@ -6,6 +6,7 @@ Ricardo Rodriguez - 98388
 from heapq import nlargest
 from math import log10, sqrt
 from utils import dynamically_init_class
+from json import loads
 
 def dynamically_init_searcher(**kwargs):
     """Dynamically initializes a Tokenizer object from this
@@ -38,13 +39,15 @@ class BaseSearcher:
     def search(self, index, query_tokens, top_k):
         pass
 
-    def batch_search(self, index, reader, tokenizer, output_file, top_k=1000):
+    def batch_search(self, index, reader, tokenizer, output_file, top_k=1000, boost=None):
         """
         Function responsible for orchestrating the search process
         """
 
+        print("boost", boost)
+
         if self.interactive:
-            
+
             # Continue query interactive mode
             cont = True
 
@@ -59,7 +62,7 @@ class BaseSearcher:
                     for token, pubs in tokenizer.tokenize('1', query).items()
                 }
 
-                results = self.search(index, query_tokens, top_k)
+                results = self.search(index, query_tokens, top_k, boost)
 
                 results_list = [ (pmid, score) for pmid,score in dict(results).items() ]
 
@@ -137,7 +140,7 @@ class BaseSearcher:
                         for token, pubs in tokenizer.tokenize('1', query).items()
                     }
 
-                    results = self.search(index, query_tokens, top_k)
+                    results = self.search(index, query_tokens, top_k, boost)
 
                     # write results to disk
 
@@ -151,6 +154,46 @@ class BaseSearcher:
 
                     query = reader.read_next_question()
 
+
+    def boost_scores(self, query, document, boost):
+
+        num_distinct_terms = len(set(document.keys()).intersection(set(query)))
+        print("num_distinct_terms", num_distinct_terms)
+        token_positions = [ loads(data[1]) for data in document.values() ]
+        min_window_size = self.find_min_window_size(token_positions)
+    
+        # calcular booster
+
+
+        return min_window_size
+
+    def find_min_window_size(self, token_positions):
+
+        print(token_positions)
+
+        min_window_size = float("inf")
+        for x in token_positions[0]:
+            window = [x]
+            for lst in token_positions[1:]:
+                min_diff = float("inf")
+                closest_y = None
+                for y in lst:
+                    for z in window:
+                        distance = abs(z - y)
+                        if distance < min_diff:
+                            min_diff = distance
+                            closest_y = y
+                window.append(closest_y)
+            sorted_window = sorted(window)
+            window_size = sorted_window[-1] - sorted_window[0]
+            if min_window_size is None or window_size < min_window_size:
+                min_window_size = window_size
+        
+    
+        print("Min_window_size", min_window_size)
+
+        return min_window_size
+        
 
     def compute_normal_index(self, posting_lists):
         """
@@ -189,11 +232,12 @@ class TFIDFRanking(BaseSearcher):
                 f"{self.__class__.__name__} also caught the following additional arguments {kwargs}"
             )
 
-    def calc_term_frequency(self, term_frequency):
+    def calc_term_frequency(self, positions):
         """
         Returns the term frequency based on the smart notation
         """
 
+        term_frequency = len(positions)
         term_frequency_letter = self.smart.split('.')[1][0]
         if term_frequency_letter == 'n':
             return term_frequency
@@ -272,14 +316,14 @@ class TFIDFRanking(BaseSearcher):
         else:
             raise NotImplementedError
 
-    def search(self, index, query_tokens, top_k):
+    def search(self, index, query_tokens, top_k, boost):
         """
         Get the top_k documents for query
         """
 
         # calc term frequency
         tokens_weights = {
-            token: self.calc_term_frequency(frequency) for token, frequency in query_tokens.items()
+            token: self.calc_term_frequency(positions) for token, positions in query_tokens.items()
         }
 
         # posting_lists = {'token': {'doc_id': no_normalized_weight}}
@@ -318,6 +362,7 @@ class TFIDFRanking(BaseSearcher):
         # get results
         doc_weights = {}
         for doc_id, doc_tokens in normal_index.items():
+
             # calc weight
             # para cada token na query, multiplicamos o seu peso pelo peso do
             # documento e depois dividimos pelos pesos normalizados de cada um
@@ -325,8 +370,16 @@ class TFIDFRanking(BaseSearcher):
             for token, weight in tokens_weights.items():
                 if token not in doc_tokens:
                     continue
-                doc_weight += weight/query_normalized_weight * doc_tokens[token]/doc_norms[doc_id]
+                doc_weight += weight/query_normalized_weight * doc_tokens[token][0]/doc_norms[doc_id]
             doc_weights[doc_id] = doc_weight
+            
+            # Get boosted score of the document (optional)
+            if boost:
+                #doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens)
+                print(doc_id)
+                self.boost_scores(query_tokens, doc_tokens, boost)
+                break
+
 
         # Now we sort the documents by weight and choose the top_k 
         results = []
@@ -357,7 +410,7 @@ class BM25Ranking(BaseSearcher):
                 f"{self.__class__.__name__} also caught the following additional arguments {kwargs}"
             )
 
-    def search(self, index, query_tokens, top_k):
+    def search(self, index, query_tokens, top_k, boost):
 
         # Dictionary to store the bm25 ranking of each publication, according to the current query
         pub_scores = {}
@@ -398,8 +451,6 @@ class BM25Ranking(BaseSearcher):
 
         # Using heapq.nlargest to find the k best scored publications in decreasing order
         top_k_pubs = nlargest(top_k, pub_scores.keys(), key=lambda k: pub_scores[k])
-
-        #print(top_k_pubs)
 
         # Return top-k pmid : pub_score
         return { pmid : pub_scores[pmid] for pmid in top_k_pubs }

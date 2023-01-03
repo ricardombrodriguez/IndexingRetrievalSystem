@@ -22,7 +22,6 @@ class Tokenizer:
 
         # Lowercase, remove ponctuation, parentheses, numbers, and replace
         filtered_terms = []
-        counter = 0
         for term in terms:
 
             lower_term = term.lower()
@@ -44,11 +43,11 @@ class Tokenizer:
 
         tokens = {}
         
-        for token in filtered_terms:
-            if term not in tokens:
-                tokens[token] = { pub_id : [filtered_terms.index(token)] }
+        for i, token in enumerate(filtered_terms):
+            if token not in tokens:
+                tokens[token] = { pub_id : [i] }
             else:
-                tokens[token][pub_id] += [filtered_terms.index(token)]
+                tokens[token][pub_id] += [i]
 
         return tokens
 

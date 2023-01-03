@@ -315,6 +315,11 @@ if __name__ == "__main__":
                                 help='The query is written in interactive mode and the results are presented in the terminal with pagination',
                                 required=False)
 
+    searcher_parser.add_argument('--boost', 
+                                type=float,
+                                help='Multiplicative boost factor (for minimum window size)',
+                                required=False)
+
     # Searcher also specifies a reader
     # question reader
     shared_reader(searcher_parser, "QuestionsReader")

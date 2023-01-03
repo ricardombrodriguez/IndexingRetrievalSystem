@@ -71,6 +71,7 @@ def engine_logic(args):
                        args.path_to_questions,
                        args.output_file,
                        args.top_k,
+                       args.boost,
                        args.reader,
                        args.tk,
                        args.ranking,
@@ -127,12 +128,14 @@ def searcher_logic(
                    path_to_questions,
                    output_file,
                    top_k,
+                   boost,
                    reader_args,
                    tk_args,
                    ranking_args,
                    interactive
                    ):
 
+    print("asasasaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", index_folder, top_k, boost, ranking_args)
 
     reader = dynamically_init_reader(path_to_questions=path_to_questions,
                                     **reader_args.get_kwargs())
@@ -155,4 +158,4 @@ def searcher_logic(
 
     tokenizer = dynamically_init_tokenizer(**tk_kwargs)
 
-    ranker.batch_search(index, reader, tokenizer, output_file, top_k=top_k)
+    ranker.batch_search(index, reader, tokenizer, output_file, top_k=top_k, boost=boost)

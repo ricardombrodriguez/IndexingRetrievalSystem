@@ -84,8 +84,9 @@ class SPIMIIndexer(Indexer):
                 if self.smart[0] == 'l':
                     # Calculate logarithm of term frequency
                     for token in tokens:
-                        term_frequency = tokens[token][pmid]
-                        tokens[token][pmid] = 1 + log10(term_frequency)
+                        positions = tokens[token][pmid]
+                        term_frequency = len(positions)
+                        tokens[token][pmid] = (1 + log10(term_frequency), positions)    # (tf, positions_list)
                 elif self.smart[0] == 'a':
                     # Calculate augmented
                     raise NotImplementedError
@@ -96,7 +97,12 @@ class SPIMIIndexer(Indexer):
                     # Calculate log ave
                     raise NotImplementedError
             elif self.weight_method == 'bm25':
-                pub_tokens = sum([len(positions_list) for token, dic in tokens.items() for positions_list in dic.values()])
+                pub_tokens = 0
+                for token in tokens:
+                    positions = tokens[token][pmid]
+                    term_frequency = len(positions)
+                    tokens[token][pmid] = (term_frequency, positions)    # (tf, positions_list)
+                    pub_tokens += term_frequency
                 self.pub_length[pmid] = pub_tokens
                 self.pub_total_tokens += pub_tokens
 
@@ -104,11 +110,11 @@ class SPIMIIndexer(Indexer):
                 self._index.add_term(
                     token,
                     doc_id,
-                    len(positions_list),
+                    tf_positions,
                     index_output_folder=index_output_folder
                 )
                 for token, data in tokens.items()
-                for doc_id, positions_list in data.items()
+                for doc_id, tf_positions in data.items()
             ] # add terms to index
 
             pub_terms = {}
@@ -309,7 +315,7 @@ class InvertedIndex(BaseIndex):
         f = gzip.GzipFile(f"{folder}/block_{self.block_counter}.txt", "wb") # to read use the same line with rb
         self.filenames.append(f"{folder}/block_{self.block_counter}.txt")
         for term, posting in sorted_index.items():
-            f.write(f"{term} {','.join([ str(pmid) + ':' + str(tf) for pmid, tf in posting.items()])}\n".encode("utf-8"))
+            f.write(f"{term} {';'.join([ str(pmid) + ':' + str(tf_positions[0]) + ':[' + ','.join(map(str, tf_positions[1])) + ']' for pmid, tf_positions in posting.items()])}\n".encode("utf-8"))
         f.close()
         self.block_counter += 1
 
@@ -388,22 +394,25 @@ class InvertedIndex(BaseIndex):
                 if recent_term and func is not None:
                     # merge_line is "<term> <doc1>:<term_frequency>,<doc2>:<term_frequency>,..."
                     # we want tfidf, so we have to multiply tf with idf
-                    idf = func(len(recent_postings.split(",")))
-                    for posting in recent_postings.split(","):
-                        posting_list += f"{posting.split(':', 1)[0]}:{float(posting.split(':', 1)[1]) * idf},"
+                    
+                    idf = func(len(recent_postings.split(";")))
+                    for posting in recent_postings.split(";"):
+                        posting_data = posting.split(":")
+                        posting_list += f"{posting_data[0]}:{float(posting_data[1]) * idf}:{str(posting_data[2])};"
                 else:
                     posting_list = recent_postings
 
                 # normalization calcs
                 if recent_term and weight_method == "tfidf":
                     if kwargs["tfidf"]["smart"][2] == 'c':
-                        for posting in posting_list.split(','):
-                            doc_id, weight = posting.split(':')
+                        for posting in recent_postings.split(";"):
+                            doc_id = posting.split(':')[0]
+                            weight = posting.split(':')[1]
                             if doc_id not in doc_index:
                                 doc_index[doc_id] = 0
                             doc_index[doc_id] += float(weight) ** 2
                     elif kwargs["tfidf"]["smart"][2] == 'u':
-                        for posting in posting_list.split(','):
+                        for posting in recent_postings.split(";"):
                             # in the end we want to know how many unique terms are in each doc
                             doc_id = posting.split(':')[0]
                             if doc_id not in doc_index:
@@ -450,7 +459,7 @@ class InvertedIndex(BaseIndex):
 
             else:
                 # Merge postings list while current_term = recent_term
-                recent_postings += f",{current_postings}"
+                recent_postings += f";{current_postings}"
 
             lines[min_index] = files[min_index].readline().decode('utf-8')[:-1]
 
@@ -742,9 +751,10 @@ class InvertedIndexSearcher(BaseIndex):
         # <doc1>:<no_normalized_weight1>,<doc2>:<no_normalized_weight2>,...
         # we want it to be a dictionary with
         # {'doc1': no_normalized_weight1, ...}
+
         return {
-            doc_info.split(":")[0]: float(doc_info.split(":")[1])
-            for doc_info in posting_list.split(",")
+            doc_info.split(":")[0]: (float(doc_info.split(":")[1]),doc_info.split(":")[2])
+            for doc_info in posting_list[:-1].split(";")
         }
 
     def get_tokenizer_kwargs(self):
