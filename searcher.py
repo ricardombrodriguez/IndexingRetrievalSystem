@@ -162,10 +162,12 @@ class BaseSearcher:
         token_positions = [ loads(data[1]) for data in document.values() ]
         min_window_size = self.find_min_window_size(token_positions)
     
+        boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
         # calcular booster
 
+        print("boost factor", boost_factor)
 
-        return min_window_size
+        return boost_factor
 
     def find_min_window_size(self, token_positions):
 
@@ -378,7 +380,6 @@ class TFIDFRanking(BaseSearcher):
                 #doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens)
                 print(doc_id)
                 self.boost_scores(query_tokens, doc_tokens, boost)
-                break
 
 
         # Now we sort the documents by weight and choose the top_k 
