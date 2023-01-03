@@ -45,7 +45,7 @@ class PubMedReader(Reader):
 
         self.extract_file()
 
-    def read_next_pub(self):
+    def read_next_pub(self, fields="*"):
 
         line = self.file.readline()
         if not line:
@@ -53,16 +53,37 @@ class PubMedReader(Reader):
 
         pub_json = json.loads(line)
         pmid = pub_json['pmid']
-        pub_terms = pub_json['title'].split() + pub_json['abstract'].split()
 
-        return pmid, pub_terms
+        if fields == "*":
+            return pmid, pub_json
+        elif isinstance(fields, list):
+            ret = {}
+            for key in fields:
+                if key not in pub_json:
+                    raise KeyError(
+                        f"{key} not found"
+                    )
+
+                ret[key] = pub_json[key]
+
+            return pmid, ret
+        else:
+            raise ValueError(
+                "fields must be '*' meaning that all key-value pairs should be returned \
+                or a list of keys"
+            )
+
+        # pub_json = json.loads(line)
+        # pmid = pub_json['pmid']
+        # pub_terms = pub_json['title'].split() + pub_json['abstract'].split()
+        # return pmid, pub_terms
 
     def extract_file(self):
         self.file = gzip.open(self.path_to_collection, mode="rt")
 
     def close_file(self):
         self.file.close()
-     
+
 class QuestionsReader(Reader):
     """
     This class will read and provide every query to the searcher function

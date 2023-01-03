@@ -6,7 +6,6 @@ Ricardo Rodriguez - 98388
 
 from time import time, strftime, gmtime
 from math import log10, sqrt
-import gzip
 import os
 import psutil
 import linecache
@@ -72,14 +71,20 @@ class SPIMIIndexer(Indexer):
         n_documents = 0
         while 1:
 
-            pmid, pub_terms = reader.read_next_pub()         # read publication
-            if pmid is None:                                # end of file
+            # read publication
+            pmid, pub = reader.read_next_pub(fields=["title", "abstract"])
+            if pmid is None:    # end of file
                 break
 
+            pub_terms = []
+            for val in pub.values():
+                pub_terms += val.split()
             n_documents += 1
 
             tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
 
+            tf_func = None
+            # is there any step we need to give because of the weighting method?
             if self.weight_method == 'tfidf':
                 if self.smart[0] == 'l':
                     # Calculate logarithm of term frequency
@@ -119,12 +124,14 @@ class SPIMIIndexer(Indexer):
 
             pub_terms = {}
 
+            mem_percentage = psutil.virtual_memory().percent
             print(
-                f"Using {psutil.virtual_memory().percent}% of memory |" \
-                f" {self._index.block_counter} blocks written",
-                end="\x1b[1K\r")
+                (f"Using {mem_percentage}% of memory | "
+                f"{self._index.block_counter} blocks written"),
+                end="\r"
+            )
 
-            if psutil.virtual_memory().percent > self.memory_threshold:
+            if mem_percentage > self.memory_threshold:
                 self._index.write_to_disk(index_output_folder)
                 self._index.clean_index()
 
@@ -133,7 +140,7 @@ class SPIMIIndexer(Indexer):
 
         n_temporary_files = len(self._index.filenames)
 
-        # now we have to merge all the blocks
+        # now we need to create the final index using all the temporary files
         self._index.merge_blocks(
             index_output_folder,
             n_documents=n_documents,
@@ -141,8 +148,9 @@ class SPIMIIndexer(Indexer):
             kwargs=self.kwargs
         )
 
-
         # Write metadata in index.txt file
+        # these will be used in the search and
+        # could be helpful for other operations
         os.setxattr(
             f'{index_output_folder}/index.txt', 'user.indexer_index', f'{self.get_index_name()}'
             .encode('utf-8')
@@ -193,7 +201,6 @@ class SPIMIIndexer(Indexer):
                 f'{self.smart}'.encode('utf-8')
             )
         elif self.weight_method == 'bm25':
-
             # store pub_length dictionary | { pub_id : pub_length }
             with open(f"{index_output_folder}/pubs_length.txt", "wb") as f:
                 for pmid, pub_len in self.pub_length.items():
@@ -206,16 +213,34 @@ class SPIMIIndexer(Indexer):
 
         toc = time()
 
-        print(f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.index_size/(1<<20)}mb occupied in disk | {n_temporary_files} temporary files | {self._index.n_tokens} tokens")
+        print(
+            f"Indexing finished in {strftime('%H:%M:%S', gmtime(toc-tic))} |",
+            f"{self._index.index_size/(1<<20)}mb occupied in disk |",
+            f"{n_temporary_files} temporary files |",
+            f"{self._index.n_tokens} tokens"
+        )
 
         # check if stats file exists
         if not os.path.exists("stats.txt"):
-            with open("stats.txt", "w") as f:
-                f.write("total_indexing_time | merging_time | index_size_on_disk | n_temporary_files | vocabulary_size | index_file_size\n")
+            with open("stats.txt", "w") as stats_file:
+                stats_file.write(
+                    "total_indexing_time | " +
+                    "merging_time | " +
+                    "index_size_on_disk | " +
+                    "n_temporary_files | " +
+                    "vocabulary_size | " +
+                    "index_file_size\n"
+                )
 
         # store statistics
-        with open("stats.txt", "a") as f:
-            f.write(f"{strftime('%H:%M:%S', gmtime(toc-tic))} | {self._index.merging_time} | {self._index.index_size/(1<<20)} MB | {os.path.getsize(f'{index_output_folder}/index.txt')/(1<<20)} MB | {n_temporary_files} | {self._index.n_tokens}\n")
+        with open("stats.txt", "a") as stats_file:
+            stats_file.write(
+                f"{strftime('%H:%M:%S', gmtime(toc-tic))} | " +
+                f"{self._index.merging_time} | " +
+                f"{self._index.index_size/(1<<20)} MB | " +
+                f"{os.path.getsize(f'{index_output_folder}/index.txt')/(1<<20)} MB | " +
+                f"{n_temporary_files} | {self._index.n_tokens}\n"
+            )
 
 
 class BaseIndex:
@@ -279,19 +304,34 @@ class BaseIndex:
         raise NotImplementedError
 
 class InvertedIndex(BaseIndex):
+    """
+    An inverted index uses the term as key and each term is associated with a list of publications.
+
+    This class implements all the code needed to create an inverted index for a set of documents.
+    It uses and index of indexes in order to make searching process faster,
+    so in the end it produces an index.txt file with
+    "term1 term2 index_file" like a set of encyclopedias does with the index book
+    """
     # make an efficient implementation of an inverted index
 
     def __init__(self, posting_threshold, **kwargs):
         super().__init__(posting_threshold, **kwargs)
 
     def add_term(self, term, doc_id, *args, **kwargs):
-
         # check if postings list size > postings_threshold
-        if (self._posting_threshold and sum([v for data in self.posting_list.values() for v in data.values() ]) > self._posting_threshold or (self.token_threshold and len(self.posting_list) > self.token_threshold)):
-            
+        if (
+            (self._posting_threshold and
+            sum(
+                [v for data in self.posting_list.values() for v in data.values()]
+            ) > self._posting_threshold)
+            or
+            (self.token_threshold and len(self.posting_list) > self.token_threshold)
+        ):
             # if 'index_output_folder' not in kwargs or 'filename' not in kwargs:
             if 'index_output_folder' not in kwargs:
-                raise ValueError("index_output_folder is required in kwargs in order to store the index on disk")
+                raise ValueError(
+                    "index_output_folder is required in kwargs in order to store the index on disk"
+                )
 
             self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
             self.clean_index()
@@ -312,7 +352,7 @@ class InvertedIndex(BaseIndex):
         sorted_index = {k: self.posting_list[k] for k in sorted(self.posting_list)}
 
         # Then we write it to disk
-        f = gzip.GzipFile(f"{folder}/block_{self.block_counter}.txt", "wb") # to read use the same line with rb
+        f = open(f"{folder}/block_{self.block_counter}.txt", "wb")
         self.filenames.append(f"{folder}/block_{self.block_counter}.txt")
         for term, posting in sorted_index.items():
             f.write(f"{term} {';'.join([ str(pmid) + ':' + str(tf_positions[0]) + ':[' + ','.join(map(str, tf_positions[1])) + ']' for pmid, tf_positions in posting.items()])}\n".encode("utf-8"))
@@ -329,10 +369,12 @@ class InvertedIndex(BaseIndex):
         # and we will read the next line of the file that we appended
         # we will do this until we reach the end of all the files
 
-        files_ended = 0 # when this variable is equal to the number of files, it means we have already read all the files
+        # when this variable is equal to the number of files,
+        # it means we have already read all the files
+        files_ended = 0
 
         # We will create a file object for each file
-        files = [gzip.GzipFile(filename, "rb") for filename in self.filenames]
+        files = [open(filename, "rb") for filename in self.filenames]
 
         # We will read the first line of each file
         lines = [file.readline().decode("utf-8").strip() for file in files]
@@ -340,9 +382,10 @@ class InvertedIndex(BaseIndex):
         # each time we create a new block, we will increment this variable
         final_block_counter = 0
         # We will create a file object for the final block file
-        final_block_file = gzip.GzipFile(f"{folder}/final_block_{final_block_counter}.txt", "wb")
+        final_block_file = open(f"{folder}/final_block_{final_block_counter}.txt", "w")
 
-        # These variables will hold the first and last term in a block so we can use them to create the index file
+        # This variable will hold the first term in a block
+        # so we can use it to create the index file
         first_term = None
 
         # number of lines in a block
@@ -360,7 +403,10 @@ class InvertedIndex(BaseIndex):
 
         tic = time()
 
+        # if we are using weight methods we may want to perform some actions during merge
         func = None
+        # if the weight method is TFIDF we will calculate the document frequency here and
+        # the stored value is the final tfidf weight
         if weight_method == "tfidf":
             if kwargs["tfidf"]["smart"][1] == 't':
                 func = lambda df: log10(n_documents/df)
@@ -419,7 +465,7 @@ class InvertedIndex(BaseIndex):
                                 doc_index[doc_id] = 0
                             doc_index[doc_id] += 1
 
-                final_block_file.write(f"\n{recent_term} {posting_list}".encode('utf-8'))
+                final_block_file.write(f"{recent_term} {posting_list}\n")
 
                 block_lines += 1
                 n_tokens += 1
@@ -429,13 +475,19 @@ class InvertedIndex(BaseIndex):
                 # the current block file is greater than the token_threshold
 
                 if block_lines >= self.token_threshold:
-                
-                    print(f"Block {final_block_counter} finished | first_term={first_term} and recent_term={recent_term}", end="\r")
+
+                    print(
+                        (f"Block {final_block_counter} finished | " +
+                        f"first_term={first_term} and recent_term={recent_term}"),
+                        end="\r"
+                    )
 
                     # We have to update the index file
                     # We will write the first and last term of the block and the block's filename
                     with open(f"{folder}/index.txt", "a") as index_file:
-                        index_file.write(f"{first_term} {recent_term} {folder}/final_block_{final_block_counter}.txt\n")
+                        index_file.write(
+                            f"{first_term} {recent_term} {folder}/final_block_{final_block_counter}.txt\n"
+                        )
 
                     # Close the actual block file
                     final_block_file.close()
@@ -445,8 +497,8 @@ class InvertedIndex(BaseIndex):
 
                     # Create a new block file
                     final_block_counter += 1
-                    final_block_file = gzip.GzipFile(
-                        f"{folder}/final_block_{final_block_counter}.txt", "wb"
+                    final_block_file = open(
+                        f"{folder}/final_block_{final_block_counter}.txt", "w"
                     )
 
                     # We need to reset the variables
@@ -621,7 +673,8 @@ class InvertedIndexSearcher(BaseIndex):
         """
         if self.weight_method != 'tfidf' or self.smart.split('.')[0][2] != 'u':
             raise Exception(
-                'read_norm_file function can only be called when the normalization is based on pivoted unique'
+                'read_norm_file function can only be called when \
+                the normalization is based on pivoted unique'
             )
 
         if not os.path.exists(f"{self.path_to_folder}/doc_unique_counts.txt"):
@@ -676,7 +729,7 @@ class InvertedIndexSearcher(BaseIndex):
         Returns the postings list if the token is in the block file.
         """
         block_lines = []
-        with gzip.open(block_path, 'rb') as block:
+        with open(block_path, 'r') as block:
             block_lines = block.readlines()
 
         low = 1
@@ -713,7 +766,7 @@ class InvertedIndexSearcher(BaseIndex):
         Iterates through all lines in the block and searches for the token
         """
 
-        with gzip.open(block_path, 'rb') as block:
+        with open(block_path, 'r') as block:
             for line in block:
                 if line.decode('utf-8').strip() == "":
                     continue
