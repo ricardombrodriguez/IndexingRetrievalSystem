@@ -4,10 +4,10 @@ Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
 
-from utils import dynamically_init_class
-import nltk
 import re
 from os.path import exists
+import nltk
+from utils import dynamically_init_class
 
 def dynamically_init_tokenizer(**kwargs):
     return dynamically_init_class(__name__, **kwargs)
@@ -18,37 +18,7 @@ class Tokenizer:
         super().__init__()
 
     def tokenize(self, pub_id, terms):
-
-        # Lowercase, remove ponctuation, parentheses, numbers, and replace
-        filtered_terms = []
-        for term in terms:
-
-            lower_term = term.lower()
-            # remove all non alphanumeric characters for the exception
-            # of the hiphens (removed at the beginning)
-            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')
-
-            if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL or filtered_term in self.stopwords:
-                continue
-
-            if lower_term != filtered_term:
-                for splitted_term in filtered_term.split(' '):
-                    if splitted_term and splitted_term.strip() != "" and len(splitted_term) > self.minL or splitted_term in self.stopwords:
-                        stem_t = self.stemmer_obj.stem(splitted_term) if self.stemmer else splitted_term
-                        filtered_terms.append(stem_t)
-            else:
-                stem_t = self.stemmer_obj.stem(filtered_term) if self.stemmer else filtered_term
-                filtered_terms.append(stem_t)
-
-        tokens = {}
-        
-        for i, token in enumerate(filtered_terms):
-            if token not in tokens:
-                tokens[token] = { pub_id : [i] }
-            else:
-                tokens[token][pub_id] += [i]
-
-        return tokens
+        raise NotImplementedError
 
     def get_stemmer(self, stemmer_name):
         # This function is used to get the stemmer object

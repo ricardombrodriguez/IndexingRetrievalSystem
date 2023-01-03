@@ -333,7 +333,7 @@ class InvertedIndex(BaseIndex):
                     "index_output_folder is required in kwargs in order to store the index on disk"
                 )
 
-            self.write_to_disk(kwargs['index_output_folder']) #, kwargs['filename'])
+            self.write_to_disk(kwargs['index_output_folder'])
             self.clean_index()
 
         # term: [doc_id1, doc_id2, doc_id3, ...]
@@ -355,11 +355,18 @@ class InvertedIndex(BaseIndex):
         f = open(f"{folder}/block_{self.block_counter}.txt", "wb")
         self.filenames.append(f"{folder}/block_{self.block_counter}.txt")
         for term, posting in sorted_index.items():
+            # term pmid:tf:[<positions>];pmid:tf:[<positions>];...
             f.write(f"{term} {';'.join([ str(pmid) + ':' + str(tf_positions[0]) + ':[' + ','.join(map(str, tf_positions[1])) + ']' for pmid, tf_positions in posting.items()])}\n".encode("utf-8"))
         f.close()
         self.block_counter += 1
 
     def merge_blocks(self, folder, n_documents, weight_method, kwargs):
+        """
+        During the indexing process, we will create a lot of blocks
+        and we will need to merge them in order to create a final index
+        that will be used to search for documents
+        """
+
         print("Merging blocks...")
 
         # We will iterate over the files containing the blocks
@@ -440,7 +447,7 @@ class InvertedIndex(BaseIndex):
                 if recent_term and func is not None:
                     # merge_line is "<term> <doc1>:<term_frequency>,<doc2>:<term_frequency>,..."
                     # we want tfidf, so we have to multiply tf with idf
-                    
+
                     idf = func(len(recent_postings.split(";")))
                     for posting in recent_postings.split(";"):
                         posting_data = posting.split(":")

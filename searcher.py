@@ -106,7 +106,7 @@ class BaseSearcher:
                             cont = False
                             break
                         case _:
-                            print("Command not found!") 
+                            print("Command not found!")
 
         else:
 
@@ -161,7 +161,7 @@ class BaseSearcher:
         print("num_distinct_terms", num_distinct_terms)
         token_positions = [ loads(data[1]) for data in document.values() ]
         min_window_size = self.find_min_window_size(token_positions)
-    
+
         boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
         # calcular booster
 
@@ -190,12 +190,10 @@ class BaseSearcher:
             window_size = sorted_window[-1] - sorted_window[0]
             if min_window_size is None or window_size < min_window_size:
                 min_window_size = window_size
-        
-    
+
         print("Min_window_size", min_window_size)
 
         return min_window_size
-        
 
     def compute_normal_index(self, posting_lists):
         """
@@ -374,7 +372,7 @@ class TFIDFRanking(BaseSearcher):
                     continue
                 doc_weight += weight/query_normalized_weight * doc_tokens[token][0]/doc_norms[doc_id]
             doc_weights[doc_id] = doc_weight
-            
+
             # Get boosted score of the document (optional)
             if boost:
                 #doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens)
@@ -382,10 +380,12 @@ class TFIDFRanking(BaseSearcher):
                 self.boost_scores(query_tokens, doc_tokens, boost)
 
 
-        # Now we sort the documents by weight and choose the top_k 
+        # Now we sort the documents by weight and choose the top_k
         results = []
         counter = 0
-        for doc_id, weight in dict(sorted(doc_weights.items(), key=lambda item: item[1], reverse=True)).items():
+        for doc_id, weight in dict(
+                    sorted(doc_weights.items(), key=lambda item: item[1], reverse=True)
+                ).items():
             if counter > top_k:
                 break
             counter += 1
@@ -418,7 +418,8 @@ class BM25Ranking(BaseSearcher):
 
         # avg_pub_length -> average length of the publications
         # n_documents -> total number of documents/publications
-        # pubs_length -> dictionary containing the pmid as key and the length of the publications as value
+        # pubs_length -> dictionary containing the pmid as key and 
+        # the length of the publications as value
         parameters = index.get_pubs_length()
         avg_pub_length = float(parameters['pub_avg_length'])
         n_documents = int(parameters['n_documents'])
