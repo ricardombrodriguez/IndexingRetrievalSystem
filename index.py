@@ -444,7 +444,7 @@ class InvertedIndex(BaseIndex):
                     idf = func(len(recent_postings.split(";")))
                     for posting in recent_postings.split(";"):
                         posting_data = posting.split(":")
-                        posting_list += f"{posting_data[0]}:{float(posting_data[1]) * idf}:{str(posting_data[2])};"
+                        posting_list += f"{posting_data[0]}:{float(posting_data[1]) * idf}:{str(posting_data[2])}"
                 else:
                     posting_list = recent_postings
 
@@ -807,7 +807,7 @@ class InvertedIndexSearcher(BaseIndex):
 
         return {
             doc_info.split(":")[0]: (float(doc_info.split(":")[1]),doc_info.split(":")[2])
-            for doc_info in posting_list[:-1].split(";")
+            for doc_info in posting_list.split(";")
         }
 
     def get_tokenizer_kwargs(self):

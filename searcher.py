@@ -157,14 +157,24 @@ class BaseSearcher:
 
     def boost_scores(self, query, document, boost):
 
-        num_distinct_terms = len(set(document.keys()).intersection(set(query)))
-        print("num_distinct_terms", num_distinct_terms)
-        token_positions = [ loads(data[1]) for data in document.values() ]
-        min_window_size = self.find_min_window_size(token_positions)
-    
-        boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
-        # calcular booster
+        print(document)
 
+        num_distinct_terms = len(set(document).intersection(set(query)))
+
+        # boost_factor is 1 by default (when document does not contain all query terms)
+        boost_factor = 1    
+
+        # Document contains all distinct query tokens (can apply min boost factor)
+        if num_distinct_terms == len(set(document)):
+            token_positions = [ loads(data[1]) for data in document.values() ]
+            min_window_size = self.find_min_window_size(token_positions)
+            boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
+
+        if boost_factor > 1:
+            print("?======?")
+            print(boost_factor)
+
+        # calcular booster
         print("boost factor", boost_factor)
 
         return boost_factor
@@ -375,6 +385,8 @@ class TFIDFRanking(BaseSearcher):
                 doc_weight += weight/query_normalized_weight * doc_tokens[token][0]/doc_norms[doc_id]
             doc_weights[doc_id] = doc_weight
             
+            # ====
+
             # Get boosted score of the document (optional)
             if boost:
                 #doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens)
@@ -425,7 +437,7 @@ class BM25Ranking(BaseSearcher):
         pubs_length = parameters['pubs_length']
 
         # Iterate through query pairs of (tokens : term frequency)
-        for query_token, query_token_tf in query_tokens.items():
+        for query_token, query_token_positions in query_tokens.items():
 
             # Retrieve token postings list, if it exists
             postings_list = index.search_token(query_token)
@@ -437,18 +449,27 @@ class BM25Ranking(BaseSearcher):
             idf = self.calculate_idf(postings_list, n_documents)
 
             # Iterating each publication in the postings list and update its BM25 score
-            for pub_id, term_frequency in postings_list.items():
+            for pub_id, data in postings_list.items():
+
+                positions = loads(data[1])
 
                 score = self.calculate_bm25(
-                    idf, term_frequency, self.k1, self.b, pubs_length[pub_id], avg_pub_length
+                    idf, len(positions), self.k1, self.b, pubs_length[pub_id], avg_pub_length
                 )
 
                 # Add score to pub_scores. Note: if a token is repeated two times in a query, 
                 # the score is going to be multiplied by 2
                 if pub_id not in pub_scores:
-                    pub_scores[pub_id] = score * query_token_tf
+                    pub_scores[pub_id] = score * len(query_token_positions)
                 else:
-                    pub_scores[pub_id] += score * query_token_tf
+                    pub_scores[pub_id] += score * len(query_token_positions)
+
+                # Get boosted score of the document (optional)
+                if boost:
+                    #doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens)
+                    print(pub_id)
+                    boost_factor = self.boost_scores(query_tokens, positions, boost)
+                    print("boostfactor", boost_factor)
 
         # Using heapq.nlargest to find the k best scored publications in decreasing order
         top_k_pubs = nlargest(top_k, pub_scores.keys(), key=lambda k: pub_scores[k])
