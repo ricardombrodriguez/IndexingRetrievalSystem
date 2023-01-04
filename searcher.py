@@ -3,6 +3,7 @@ Authors:
 Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
+import itertools
 from heapq import nlargest
 from math import log10, sqrt
 from utils import dynamically_init_class
@@ -39,84 +40,84 @@ class BaseSearcher:
     def search(self, index, query_tokens, top_k):
         return NotImplementedError
 
+    def interactive_search(self, index, tokenizer, top_k=1000, boost=None):
+        # Continue query interactive mode
+        cont = True
+
+        # Don't stop until cont = False
+        while cont:
+
+            print("\n==================")
+            query = input("Insert the query: ").split()
+
+            query_tokens = {
+                token: pubs['1']
+                for token, pubs in tokenizer.tokenize('1', query).items()
+            }
+
+            results = self.search(index, query_tokens, top_k, boost)
+
+            results_list = [ (pmid, score) for pmid,score in dict(results).items() ]
+
+            # Paginator variable counter
+            current_page = 0
+
+            # Paginator (starts presenting page 1)
+            while True:
+                page_str = ""
+                for i, pub in enumerate(results_list[current_page*10:current_page*10+10]):
+                    page_str += f"#{(current_page)*10+i+1} - pub_id = {pub[0]} | weight = {pub[1]}\n"
+                print(f"========= PAGE #{current_page+1} =========")
+                print(page_str)
+
+                command = input(
+                    "[Commands]\n" +
+                    "P - Go to previous page\n" +
+                    "N - Go to next page\n" + 
+                    "E - Leave results page\nCommand: "
+                )
+
+                match command:
+                    case "P":
+                        current_page -= 1
+                        if current_page < 0:
+                            print("You're in the first page!")
+                            current_page = 0
+                    case "N":
+                        current_page += 1
+                        if current_page > top_k//10 - 1:
+                            print("You're in the last page!")
+                            current_page -= 1
+                    case "E":
+                        break
+                    case _:
+                        print("Command not found!")
+
+            while True:
+
+                command = input("Do you want to keep querying? [Y/N]\nCommand: ")
+
+                match command:
+                    case "Y":
+                        break
+                    case "N":
+                        cont = False
+                        break
+                    case _:
+                        print("Command not found!")
+
     def batch_search(self, index, reader, tokenizer, output_file, top_k=1000, boost=None):
         """
         Function responsible for orchestrating the search process
         """
 
         if self.interactive:
-
-            # Continue query interactive mode
-            cont = True
-
-            # Don't stop until cont = False
-            while cont:
-
-                print("\n==================")
-                query = input("Insert the query: ").split()
-
-                query_tokens = {
-                    token: pubs['1']
-                    for token, pubs in tokenizer.tokenize('1', query).items()
-                }
-
-                results = self.search(index, query_tokens, top_k, boost)
-
-                results_list = [ (pmid, score) for pmid,score in dict(results).items() ]
-
-                # Paginator variable counter
-                current_page = 0
-
-                # Paginator (starts presenting page 1)
-                while True:
-                    page_str = ""
-                    for i, pub in enumerate(results_list[current_page*10:current_page*10+10]):
-                        page_str += f"#{(current_page)*10+i+1} - pub_id = {pub[0]} | weight = {pub[1]}\n"
-                    print(f"========= PAGE #{current_page+1} =========")
-                    print(page_str)
-
-                    command = input(
-                        "[Commands]\n" +
-                        "P - Go to previous page\n" +
-                        "N - Go to next page\n" + 
-                        "E - Leave results page\nCommand: "
-                    )
-
-                    match command:
-                        case "P":
-                            current_page -= 1
-                            if current_page < 0:
-                                print("You're in the first page!")
-                                current_page = 0
-                        case "N":
-                            current_page += 1
-                            if current_page > top_k//10 - 1:
-                                print("You're in the last page!")
-                                current_page -= 1
-                        case "E":
-                            break
-                        case _:
-                            print("Command not found!")
-
-                while True:
-
-                    command = input("Do you want to keep querying? [Y/N]\nCommand: ")
-
-                    match command:
-                        case "Y":
-                            break
-                        case "N":
-                            cont = False
-                            break
-                        case _:
-                            print("Command not found!")
-
+            self.interactive_search(index, tokenizer, top_k, boost)
         else:
-
-            with open(output_file, 'w+') as f:
+            with open(output_file, 'w+') as output_file:
 
                 # loop that reads the questions from the QuestionsReader
-                query = reader.read_next_question()
+                query_id, query = reader.read_next_question()
                 while query:
 
                     query_tokens = {
@@ -128,13 +129,13 @@ class BaseSearcher:
 
                     # write results to disk
 
-                    f.write(" ".join(query)+"\n")
+                    output_file.write(" ".join(query)+"\n")
 
                     for i, pmid in enumerate(results):
-                        f.write(
+                        output_file.write(
                             f"#{i+1} - {pmid} | weight = {results[pmid]}\n"
                         )
-                    f.write('\n')
+                    output_file.write('\n')
 
                     query = reader.read_next_question()
 
@@ -162,7 +163,8 @@ class BaseSearcher:
         if num_distinct_terms == len(set(query)):
             # Document contains all distinct query tokens (can apply min boost factor)
             token_positions = [ loads(data[1]) for data in document.values() ]
-            min_window_size = self.find_min_window_size(token_positions)
+            # min_window_size = self.find_min_window_size(token_positions)
+            min_window_size = self.find_min_window(token_positions)
             boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
 
         if boost_factor > 1:
@@ -192,6 +194,28 @@ class BaseSearcher:
                 min_window_size = window_size
 
         return min_window_size
+
+    def combinations(self, lists):
+        """
+        Generate all possible combinations using itertools
+        Using yield instead of return to avoid memory issues and improve performance
+
+        input: list of integer lists, example lists= [[1, 2, 3], [4, 5], [6, 7]]
+        """
+        for comb in itertools.product(*lists):
+            yield comb
+
+    def find_min_window(self, positions):
+        """
+        Looks for the minimum window size in the given positions
+        using the brute force approach (inspirado no trabalho de AA)
+        """
+        min_distance = float("inf")
+        for comb in self.combinations(positions):
+            distance = max(comb) - min(comb)
+            if distance < min_distance:
+                min_distance = distance
+        return min_distance
 
     def compute_normal_index(self, posting_lists):
         """
