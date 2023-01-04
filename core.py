@@ -135,7 +135,7 @@ def searcher_logic(
                    interactive
                    ):
 
-    print("asasasaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", index_folder, top_k, boost, ranking_args)
+    print("[CORE]", index_folder, top_k, boost, ranking_args)
 
     reader = dynamically_init_reader(path_to_questions=path_to_questions,
                                     **reader_args.get_kwargs())

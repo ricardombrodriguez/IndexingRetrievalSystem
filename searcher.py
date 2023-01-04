@@ -37,14 +37,12 @@ class BaseSearcher:
             self.interactive = True
 
     def search(self, index, query_tokens, top_k):
-        pass
+        return NotImplementedError
 
     def batch_search(self, index, reader, tokenizer, output_file, top_k=1000, boost=None):
         """
         Function responsible for orchestrating the search process
         """
-
-        print("boost", boost)
 
         if self.interactive:
 
@@ -77,7 +75,12 @@ class BaseSearcher:
                     print(f"========= PAGE #{current_page+1} =========")
                     print(page_str)
 
-                    command = input("[Commands]\nP - Go to previous page\nN - Go to next page\nE - Leave results page\nCommand: ")
+                    command = input(
+                        "[Commands]\n" +
+                        "P - Go to previous page\n" +
+                        "N - Go to next page\n" + 
+                        "E - Leave results page\nCommand: "
+                    )
 
                     match command:
                         case "P":
@@ -115,25 +118,6 @@ class BaseSearcher:
                 # loop that reads the questions from the QuestionsReader
                 query = reader.read_next_question()
                 while query:
-                    # aplies the tokenization to get the query_tokens
-                    # Tokenizer returns a dictionary with
-
-                    #     {
-                    #         'term': {
-                    #             'pub_id1': counter1,
-                    #             'pub_id2': counter2,
-                    #             'pub_id3': counter3,
-                    #         },
-                    #         ...
-                    #     }
-
-                    # We will only have one pub ID because we will address each query at a time
-                    # so, after getting the result from tokenize we transform the return into
-
-                    #     {
-                    #         'term': counter,
-                    #         ...
-                    #     }
 
                     query_tokens = {
                         token: pubs['1']
@@ -156,22 +140,38 @@ class BaseSearcher:
 
 
     def boost_scores(self, query, document, boost):
+        """
+        This function is responsible for boosting the scores of the documents
+        that contain all the query terms (and not only some of them)
 
-        num_distinct_terms = len(set(document.keys()).intersection(set(query)))
-        print("num_distinct_terms", num_distinct_terms)
-        token_positions = [ loads(data[1]) for data in document.values() ]
-        min_window_size = self.find_min_window_size(token_positions)
+        "If the document does not contain all the words in the query,
+        it cannot be considered a match for the query and the boost
+        factor would not be applied. The boost factor is a way to adjust
+        the ranking of documents that are considered matches for a query
+        by giving more weight to certain terms or groups of terms.
+        If a document does not contain all the words in the query,
+        it is not considered a match and the boost factor would not be applied."
+        """
 
-        boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
-        # calcular booster
+        # Number of distinct query terms in document
+        num_distinct_terms = len(set(document).intersection(set(query)))
 
-        print("boost factor", boost_factor)
+        # boost_factor is 1 by default (when document does not contain all query terms)
+        boost_factor = 1
+
+        if num_distinct_terms == len(set(query)):
+            # Document contains all distinct query tokens (can apply min boost factor)
+            token_positions = [ loads(data[1]) for data in document.values() ]
+            min_window_size = self.find_min_window_size(token_positions)
+            boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
+
+        if boost_factor > 1:
+            print("?======?")
+            print(boost_factor)
 
         return boost_factor
 
     def find_min_window_size(self, token_positions):
-
-        print(token_positions)
 
         min_window_size = float("inf")
         for x in token_positions[0]:
@@ -190,8 +190,6 @@ class BaseSearcher:
             window_size = sorted_window[-1] - sorted_window[0]
             if min_window_size is None or window_size < min_window_size:
                 min_window_size = window_size
-
-        print("Min_window_size", min_window_size)
 
         return min_window_size
 
@@ -376,7 +374,6 @@ class TFIDFRanking(BaseSearcher):
             # Get boosted score of the document (optional)
             if boost:
                 #doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens)
-                print(doc_id)
                 self.boost_scores(query_tokens, doc_tokens, boost)
 
 
@@ -425,31 +422,41 @@ class BM25Ranking(BaseSearcher):
         n_documents = int(parameters['n_documents'])
         pubs_length = parameters['pubs_length']
 
-        # Iterate through query pairs of (tokens : term frequency)
-        for query_token, query_token_tf in query_tokens.items():
+        # posting_lists = {'token': {'doc_id': no_normalized_weight}}
+        posting_lists = {}
+        # get posting list for each token
+        for token in query_tokens.keys():
+            posting_lists[token] = index.search_token(token)
 
-            # Retrieve token postings list, if it exists
-            postings_list = index.search_token(query_token)
+        # compute "normal" index
+        normal_index = self.compute_normal_index(posting_lists)
 
-            # If the token doesn't exists (None), discard the query token for the ranking
+        for query_token, postings_list in posting_lists.items():
             if not postings_list:
                 continue
 
+            # compute idf
             idf = self.calculate_idf(postings_list, n_documents)
 
             # Iterating each publication in the postings list and update its BM25 score
-            for pub_id, term_frequency in postings_list.items():
+            for pub_id, data in postings_list.items():
+
+                positions = loads(data[1])
 
                 score = self.calculate_bm25(
-                    idf, term_frequency, self.k1, self.b, pubs_length[pub_id], avg_pub_length
+                    idf, len(positions), self.k1, self.b, pubs_length[pub_id], avg_pub_length
                 )
 
-                # Add score to pub_scores. Note: if a token is repeated two times in a query, 
+                # Add score to pub_scores. Note: if a token is repeated two times in a query,
                 # the score is going to be multiplied by 2
                 if pub_id not in pub_scores:
-                    pub_scores[pub_id] = score * query_token_tf
+                    pub_scores[pub_id] = score * len(query_tokens[query_token])
                 else:
-                    pub_scores[pub_id] += score * query_token_tf
+                    pub_scores[pub_id] += score * len(query_tokens[query_token])
+
+                # Get boosted score of the document (optional)
+                if boost:
+                    self.boost_scores(query_tokens, normal_index[pub_id], boost)
 
         # Using heapq.nlargest to find the k best scored publications in decreasing order
         top_k_pubs = nlargest(top_k, pub_scores.keys(), key=lambda k: pub_scores[k])

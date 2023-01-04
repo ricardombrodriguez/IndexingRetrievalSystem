@@ -65,42 +65,34 @@ class PubMedTokenizer(Tokenizer):
         return self.__class__.__name__
 
     def tokenize(self, pub_id, terms):
-        filtered_terms = []
 
+        # Lowercase, remove ponctuation, parentheses, numbers, and replace
+        filtered_terms = []
         for term in terms:
 
             lower_term = term.lower()
             # remove all non alphanumeric characters for the exception
-            # of the hiphens (removed if at the beginning)
-            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-').strip()
+            # of the hiphens (removed at the beginning)
+            filtered_term = re.sub('[^a-zA-Z\d\s-]',' ',lower_term).lstrip('-')
 
-            # the filtered term must have more than minL chars
-            # and cannot be in the list of stopwords
-            if (not filtered_term or filtered_term == ""
-                or len(filtered_term) < self.minL or filtered_term in self.stopwords):
+            if not filtered_term or filtered_term.strip() == "" or len(filtered_term) < self.minL or filtered_term in self.stopwords:
                 continue
 
-            # has the lower_term variable end up being divided into two or more terms?
             if lower_term != filtered_term:
                 for splitted_term in filtered_term.split(' '):
-                    if (
-                        splitted_term and splitted_term.strip() != ""
-                        and len(splitted_term) > self.minL or splitted_term in self.stopwords
-                    ):
-                        stem_t = self.stemmer_obj.stem(splitted_term) if self.stemmer else splitted_term.strip()
+                    if splitted_term and splitted_term.strip() != "" and len(splitted_term) > self.minL or splitted_term in self.stopwords:
+                        stem_t = self.stemmer_obj.stem(splitted_term) if self.stemmer else splitted_term
                         filtered_terms.append(stem_t)
             else:
                 stem_t = self.stemmer_obj.stem(filtered_term) if self.stemmer else filtered_term
                 filtered_terms.append(stem_t)
 
         tokens = {}
-        # tokens will contain a dictionary with
-        # {token1: {pub1: <list of positions>, pub2: <list of positions>, ...}, token2: ... }
-        # the term frequency (TF) is given by the length of the list of positions
-        for token in filtered_terms:
+        
+        for i, token in enumerate(filtered_terms):
             if token not in tokens:
-                tokens[token] = { pub_id : [filtered_terms.index(token)] }
+                tokens[token] = { pub_id : [i] }
             else:
-                tokens[token][pub_id] += [filtered_terms.index(token)]
+                tokens[token][pub_id] += [i]
 
         return tokens
