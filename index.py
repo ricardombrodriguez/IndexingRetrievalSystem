@@ -126,7 +126,6 @@ class SPIMIIndexer(Indexer):
                 f"{self._index.block_counter} blocks written"),
                 end="\r"
             )
-            print()
 
             if mem_percentage > self.memory_threshold:
                 self._index.write_to_disk(index_output_folder)
@@ -430,7 +429,7 @@ class InvertedIndex(BaseIndex):
             min_index = lines.index(min(lines))
             line = lines[min_index]
 
-            print(f"Reading line {line} | {files_ended/len(files) * 100}%")
+            #print(f"Reading line {line} | {files_ended/len(files) * 100}%", end="\r")
             current_term = line.split(" ", 1)[0]
             current_postings = line.split(" ", 1)[1]
 

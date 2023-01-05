@@ -77,7 +77,7 @@ class PubMedTokenizer(Tokenizer):
 
         # Lowercase, remove ponctuation, parentheses, numbers, and replace
         filtered_terms = []
-        for term in terms.split(" "):
+        for term in terms.split():
 
             lower_term = term.lower()
             # remove all non alphanumeric characters for the exception
