@@ -77,17 +77,11 @@ class SPIMIIndexer(Indexer):
             if pmid is None:    # end of file
                 break
 
-            # pub_terms = []
-            # for val in pub.values():
-            #     pub_terms += val.split()
-            # n_documents += 1
             n_documents += 1
 
-            #tokens = tokenizer.tokenize(pmid, pub_terms)                           # tokenize publication
-            tokens = tokenizer.tokenize(pmid, pub, fields=["title", "abstract"])    # tokenize publication
+            # tokenize publication
+            tokens = tokenizer.tokenize(pmid, pub)
 
-
-            tf_func = None
             # is there any step we need to give because of the weighting method?
             if self.weight_method == 'tfidf':
                 if self.smart[0] == 'l':
@@ -126,14 +120,13 @@ class SPIMIIndexer(Indexer):
                 for doc_id, tf_positions in data.items()
             ] # add terms to index
 
-            pub_terms = {}
-
             mem_percentage = psutil.virtual_memory().percent
             print(
                 (f"Using {mem_percentage}% of memory | "
                 f"{self._index.block_counter} blocks written"),
                 end="\r"
             )
+            print()
 
             if mem_percentage > self.memory_threshold:
                 self._index.write_to_disk(index_output_folder)
@@ -437,6 +430,7 @@ class InvertedIndex(BaseIndex):
             min_index = lines.index(min(lines))
             line = lines[min_index]
 
+            print(f"Reading line {line} | {files_ended/len(files) * 100}%")
             current_term = line.split(" ", 1)[0]
             current_postings = line.split(" ", 1)[1]
 

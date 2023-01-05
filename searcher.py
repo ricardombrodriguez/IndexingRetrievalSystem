@@ -48,7 +48,7 @@ class BaseSearcher:
         while cont:
 
             print("\n==================")
-            query = input("Insert the query: ").split()
+            query = input("Insert the query: ")
 
             query_tokens = {
                 token: pubs['1']
@@ -115,29 +115,42 @@ class BaseSearcher:
             self.interactive_search(index, tokenizer, top_k, boost)
         else:
             with open(output_file, 'w+') as output_file:
-
                 # loop that reads the questions from the QuestionsReader
+                # and writes the results to the output file
+
+                # The reader returns a tuple (query_id, query)
+                # where query_id is the id of the query and query is a string
                 query_id, query = reader.read_next_question()
                 while query:
-
+                    print(query)
                     query_tokens = {
-                        token: pubs['1']
-                        for token, pubs in tokenizer.tokenize('1', query).items()
+                        token: pubs[query_id]
+                        for token, pubs in tokenizer.tokenize(query_id, query).items()
                     }
 
                     results = self.search(index, query_tokens, top_k, boost)
 
                     # write results to disk
-
                     output_file.write(" ".join(query)+"\n")
 
+                    obtained_results = []
                     for i, pmid in enumerate(results):
+                        obtained_results.append(pmid)
                         output_file.write(
                             f"#{i+1} - {pmid} | weight = {results[pmid]}\n"
                         )
                     output_file.write('\n')
 
-                    query = reader.read_next_question()
+                    if reader.has_results:
+                        query_id, results_list = reader.read_current_result()
+                        print("Esperados:", results_list)
+                        print("Obtidos:", obtained_results)
+                        # chamar aqui a função que compara os resultados
+                        # e que cria as estatísticas
+                        # esta função deve estar num ficheiro à parte e pode ser
+                        # uma classe com vários métodos, ainda não sei bem
+
+                    query_id, query = reader.read_next_question()
 
 
     def boost_scores(self, query, document, boost):
@@ -160,18 +173,15 @@ class BaseSearcher:
         # boost_factor is 1 by default (when document does not contain all query terms)
         boost_factor = 1
 
+        # If document contains all distinct query terms, apply boost factor
         if num_distinct_terms == len(set(query)):
-
-            # Document contains all distinct query tokens (can apply min boost factor)
+            # Create a list of lists with the positions of each query term in the document
             token_positions = [ loads(data[1]) for data in document.values() ]
-            # min_window_size = self.find_min_window_size(token_positions)
-            min_window_size = self.find_min_window(token_positions) + 1
-            # boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
-            #boost_factor = boost * (1 / (min_window_size - num_distinct_terms + 1) )
-            if min_window_size == num_distinct_terms:
-                boost_factor = 2
-            else:
-                boost_factor = boost * (1 / min_window_size )
+            min_window_size = self.find_min_window(token_positions)
+            boost_factor = boost * (1 / (min_window_size - num_distinct_terms + 1))
+
+            if boost_factor < 1:
+                boost_factor = 1
 
         return boost_factor
 
@@ -189,13 +199,19 @@ class BaseSearcher:
         """
         Looks for the minimum window size in the given positions
         using the brute force approach (inspirado no trabalho de AA)
+
+        (Although this method is not the best performing one, it was the most accurate one)
+
+        input (positions): list of integer lists, example positions= [[1, 2, 3], [4, 5], [6, 7]
         """
-        min_distance = float("inf")
+        min_window = float("inf")
         for comb in self.combinations(positions):
-            distance = max(comb) - min(comb)
-            if distance < min_distance:
-                min_distance = distance
-        return min_distance
+            # +1 because we want the window size, not the
+            # distance between the last and first element
+            window = max(comb) - min(comb) + 1
+            if window < min_window:
+                min_window = window
+        return min_window
 
     def compute_normal_index(self, posting_lists):
         """

@@ -49,37 +49,12 @@ class PubMedReader(Reader):
 
         line = self.file.readline()
         if not line:
-            return None, None # fim do ficheiro
+            return None, None # EOF (end of file)
 
         pub_json = json.loads(line)
         pmid = pub_json['pmid']
-        """ 
-        if fields == "*":
-            return pmid, pub_json
-        elif isinstance(fields, list):
-            ret = {}
-            for key in fields:
-                if key not in pub_json:
-                    raise KeyError(
-                        f"{key} not found"
-                    )
 
-                ret[key] = pub_json[key]
-
-            return pmid, ret
-        else:
-            raise ValueError(
-                "fields must be '*' meaning that all key-value pairs should be returned \
-                or a list of keys"
-            )
-        """
-
-        return pmid, pub_json
-
-        # pub_json = json.loads(line)
-        # pmid = pub_json['pmid']
-        # pub_terms = pub_json['title'].split() + pub_json['abstract'].split()
-        # return pmid, pub_terms
+        return pmid, pub_json["title"] + " " + pub_json["abstract"]
 
     def extract_file(self):
         self.file = gzip.open(self.path_to_collection, mode="rt")
@@ -109,6 +84,7 @@ class QuestionsReader(Reader):
             )
         self.open_file()
         self.id = 0
+        self.has_results = False
 
     def read_next_question(self):
         """
@@ -119,10 +95,10 @@ class QuestionsReader(Reader):
         line = self.questions_file.readline()
         if not line:
             self.questions_file.close()
-            return None # end of file
+            return None, None # end of file
 
         self.id += 1
-        return self.id, line.strip().split(" ")
+        return self.id, line.strip()
 
     def open_file(self):
         """
@@ -160,29 +136,35 @@ class GsQuestionsReader(Reader):
             )
         self.open_file()
 
+        self.has_results = False
+        # this will work as a cache for the results of the current question
+        self.current_line = ""
+
     def read_next_question(self):
         """
         Read next query/question from questions file
-        Returns the question id and a list with all the words on the query
+        Returns the question id and a string with the query
         """
         line = self.questions_file.readline()
         if not line:
             self.questions_file.close()
-            return None # end of file
+            self.current_line = None
+            return None, None # EOF (end of file)
 
-        return 1, line.strip().split(" ")
+        self.current_line = json.loads(line)
+        self.has_results = "documents_pmid" in self.current_line
 
-    def read_next_result(self):
+        return self.current_line['query_id'], self.current_line["query_text"]
+
+    def read_current_result(self):
         """
-        Read the results from the next query from questions file
+        Read the results from the current query from questions file
         Returns the question id and a list with all the results
         """
-        line = self.questions_file.readline()
-        if not line:
-            self.questions_file.close()
-            return None
+        if not self.current_line:
+            return None, None
 
-        return line.strip().split(" ")
+        return self.current_line['query_id'], self.current_line["documents_pmid"]
 
     def open_file(self):
         """
@@ -194,7 +176,7 @@ class GsQuestionsReader(Reader):
             raise FileNotFoundError
         if not os.path.isfile(self.path_to_questions):
             raise IsADirectoryError
-        if os.path.splitext(self.path_to_questions)[1] != ".txt":
-            raise Exception("only txt files allowed")
+        if os.path.splitext(self.path_to_questions)[1] != ".jsonl":
+            raise Exception("only jsonl files allowed")
 
         self.questions_file = open(self.path_to_questions, "r")

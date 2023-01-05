@@ -64,27 +64,20 @@ class PubMedTokenizer(Tokenizer):
         """
         return self.__class__.__name__
 
-    def tokenize(self, pub_id, terms, fields=None):
+    def tokenize(self, pub_id, terms):
+        """
+        This function is used to tokenize the terms of a publication
+        It divides the terms into words, removes stopwords and punctuation
+        and applies stemming if it is enabled
 
-        if fields:
-            pub_terms = []
-            if isinstance(fields, list):
-                for key in fields:
-                    if key not in terms:
-                        raise KeyError(
-                            f"{key} not found"
-                        )
-                    pub_terms += terms[key].split()
-            else:
-                raise ValueError(
-                    "fields must be '*' meaning that all key-value pairs should be returned \
-                    or a list of keys"
-                )
-            terms = pub_terms
+        Args:
+            pub_id (str): publication id
+            pub_terms (stri): publication terms
+        """
 
         # Lowercase, remove ponctuation, parentheses, numbers, and replace
         filtered_terms = []
-        for term in terms:
+        for term in terms.split(" "):
 
             lower_term = term.lower()
             # remove all non alphanumeric characters for the exception
@@ -104,7 +97,7 @@ class PubMedTokenizer(Tokenizer):
                 filtered_terms.append(stem_t)
 
         tokens = {}
-        
+
         for i, token in enumerate(filtered_terms):
             if token not in tokens:
                 tokens[token] = { pub_id : [i] }
