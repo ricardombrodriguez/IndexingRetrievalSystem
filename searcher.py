@@ -161,11 +161,17 @@ class BaseSearcher:
         boost_factor = 1
 
         if num_distinct_terms == len(set(query)):
+
             # Document contains all distinct query tokens (can apply min boost factor)
             token_positions = [ loads(data[1]) for data in document.values() ]
             # min_window_size = self.find_min_window_size(token_positions)
-            min_window_size = self.find_min_window(token_positions)
-            boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
+            min_window_size = self.find_min_window(token_positions) + 1
+            # boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
+            #boost_factor = boost * (1 / (min_window_size - num_distinct_terms + 1) )
+            if min_window_size == num_distinct_terms:
+                boost_factor = 2
+            else:
+                boost_factor = boost * (1 / min_window_size )
 
         return boost_factor
 
@@ -371,8 +377,11 @@ class TFIDFRanking(BaseSearcher):
 
             # Get boosted score of the document (optional)
             if boost:
+                if doc_id == "17404117":
+                    print(doc_id)
+                    print(doc_tokens)
+                    print(self.boost_scores(query_tokens, doc_tokens, boost))
                 doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens, boost)
-                print("fui boostado!", boost)
 
 
         # Now we sort the documents by weight and choose the top_k
@@ -455,7 +464,6 @@ class BM25Ranking(BaseSearcher):
                 # Get boosted score of the document (optional)
                 if boost:
                     pub_scores[pub_id] *= self.boost_scores(query_tokens, normal_index[pub_id], boost)
-                    print("fui boostado!", boost)
 
         # Using heapq.nlargest to find the k best scored publications in decreasing order
         top_k_pubs = nlargest(top_k, pub_scores.keys(), key=lambda k: pub_scores[k])

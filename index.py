@@ -455,7 +455,8 @@ class InvertedIndex(BaseIndex):
                     idf = func(len(recent_postings.split(";")))
                     for posting in recent_postings.split(";"):
                         posting_data = posting.split(":")
-                        posting_list += f"{posting_data[0]}:{float(posting_data[1]) * idf}:{str(posting_data[2])}"
+                        posting_list += f"{posting_data[0]}:{float(posting_data[1]) * idf}:{str(posting_data[2])};"
+                    posting_list = posting_list[:-1]
                 else:
                     posting_list = recent_postings
 
