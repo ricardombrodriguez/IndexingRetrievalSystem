@@ -167,33 +167,7 @@ class BaseSearcher:
             min_window_size = self.find_min_window(token_positions)
             boost_factor = boost * (1 - (min_window_size - num_distinct_terms) / min_window_size)
 
-        if boost_factor > 1:
-            print("?======?")
-            print(boost_factor)
-
         return boost_factor
-
-    def find_min_window_size(self, token_positions):
-
-        min_window_size = float("inf")
-        for x in token_positions[0]:
-            window = [x]
-            for lst in token_positions[1:]:
-                min_diff = float("inf")
-                closest_y = None
-                for y in lst:
-                    for z in window:
-                        distance = abs(z - y)
-                        if distance < min_diff:
-                            min_diff = distance
-                            closest_y = y
-                window.append(closest_y)
-            sorted_window = sorted(window)
-            window_size = sorted_window[-1] - sorted_window[0]
-            if min_window_size is None or window_size < min_window_size:
-                min_window_size = window_size
-
-        return min_window_size
 
     def combinations(self, lists):
         """
@@ -397,8 +371,8 @@ class TFIDFRanking(BaseSearcher):
 
             # Get boosted score of the document (optional)
             if boost:
-                #doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens)
-                self.boost_scores(query_tokens, doc_tokens, boost)
+                doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens, boost)
+                print("fui boostado!", boost)
 
 
         # Now we sort the documents by weight and choose the top_k
@@ -480,7 +454,8 @@ class BM25Ranking(BaseSearcher):
 
                 # Get boosted score of the document (optional)
                 if boost:
-                    self.boost_scores(query_tokens, normal_index[pub_id], boost)
+                    pub_scores[pub_id] *= self.boost_scores(query_tokens, normal_index[pub_id], boost)
+                    print("fui boostado!", boost)
 
         # Using heapq.nlargest to find the k best scored publications in decreasing order
         top_k_pubs = nlargest(top_k, pub_scores.keys(), key=lambda k: pub_scores[k])

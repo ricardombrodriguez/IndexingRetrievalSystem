@@ -45,7 +45,7 @@ class PubMedReader(Reader):
 
         self.extract_file()
 
-    def read_next_pub(self, fields="*"):
+    def read_next_pub(self):
 
         line = self.file.readline()
         if not line:
@@ -53,7 +53,7 @@ class PubMedReader(Reader):
 
         pub_json = json.loads(line)
         pmid = pub_json['pmid']
-
+        """ 
         if fields == "*":
             return pmid, pub_json
         elif isinstance(fields, list):
@@ -72,6 +72,9 @@ class PubMedReader(Reader):
                 "fields must be '*' meaning that all key-value pairs should be returned \
                 or a list of keys"
             )
+        """
+
+        return pmid, pub_json
 
         # pub_json = json.loads(line)
         # pmid = pub_json['pmid']
@@ -133,8 +136,8 @@ class QuestionsReader(Reader):
             raise IsADirectoryError
         if os.path.splitext(self.path_to_questions)[1] != ".txt":
             raise Exception("only txt files allowed")
-
         self.questions_file = open(self.path_to_questions, "r")
+
 class GsQuestionsReader(Reader):
     """
     This class will read and provide every query to the searcher function

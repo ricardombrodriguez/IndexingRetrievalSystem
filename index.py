@@ -72,16 +72,20 @@ class SPIMIIndexer(Indexer):
         while 1:
 
             # read publication
-            pmid, pub = reader.read_next_pub(fields=["title", "abstract"])
+            # pmid, pub = reader.read_next_pub(fields=["title", "abstract"])
+            pmid, pub = reader.read_next_pub()
             if pmid is None:    # end of file
                 break
 
-            pub_terms = []
-            for val in pub.values():
-                pub_terms += val.split()
+            # pub_terms = []
+            # for val in pub.values():
+            #     pub_terms += val.split()
+            # n_documents += 1
             n_documents += 1
 
-            tokens = tokenizer.tokenize(pmid, pub_terms)    # tokenize publication
+            #tokens = tokenizer.tokenize(pmid, pub_terms)                           # tokenize publication
+            tokens = tokenizer.tokenize(pmid, pub, fields=["title", "abstract"])    # tokenize publication
+
 
             tf_func = None
             # is there any step we need to give because of the weighting method?

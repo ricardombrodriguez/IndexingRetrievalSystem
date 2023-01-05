@@ -64,7 +64,23 @@ class PubMedTokenizer(Tokenizer):
         """
         return self.__class__.__name__
 
-    def tokenize(self, pub_id, terms):
+    def tokenize(self, pub_id, terms, fields=None):
+
+        if fields:
+            pub_terms = []
+            if isinstance(fields, list):
+                for key in fields:
+                    if key not in terms:
+                        raise KeyError(
+                            f"{key} not found"
+                        )
+                    pub_terms += terms[key].split()
+            else:
+                raise ValueError(
+                    "fields must be '*' meaning that all key-value pairs should be returned \
+                    or a list of keys"
+                )
+            terms = pub_terms
 
         # Lowercase, remove ponctuation, parentheses, numbers, and replace
         filtered_terms = []
