@@ -3,7 +3,11 @@ Authors:
 Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
+import os
+import statistics
+import time
 import itertools
+from metrics import MetricsCalcultor as mc
 from heapq import nlargest
 from math import log10, sqrt
 from utils import dynamically_init_class
@@ -109,13 +113,28 @@ class BaseSearcher:
     def batch_search(self, index, reader, tokenizer, output_file, top_k=1000, boost=None):
         """
         Function responsible for orchestrating the search process
+
+        This function will also keep track of the search metrics (only for non interactive mode)
         """
 
         if self.interactive:
             self.interactive_search(index, tokenizer, top_k, boost)
         else:
+            # query latency is a list with the time spent calculating the results
+            # (tokenization + search) of each query in s
+            # the list is used to calculate the query throughput
+            # and the median query latency
+            # the total number of queries is the length of this list
+            query_latency = []
+
+            # lists for expected results depending metrics
+            recall_list = []
+            precision_list = []
+            fmeasure_list = []
+            avg_precision_list = []
+
             with open(output_file, 'w+') as output_file:
-                # loop that reads the questions from the QuestionsReader
+                # loop that reads the questions from the QuestionsReader (or other provided reader)
                 # and writes the results to the output file
 
                 # The reader returns a tuple (query_id, query)
@@ -123,12 +142,20 @@ class BaseSearcher:
                 query_id, query = reader.read_next_question()
                 while query:
                     print(query)
+
+                    tick = time.time()
+
+                    # tokenize the query
                     query_tokens = {
                         token: pubs[query_id]
                         for token, pubs in tokenizer.tokenize(query_id, query).items()
                     }
 
+                    # search for the query
                     results = self.search(index, query_tokens, top_k, boost)
+
+                    tock = time.time()
+                    query_latency.append(tock - tick)
 
                     # write results to disk
                     output_file.write(" ".join(query)+"\n")
@@ -143,15 +170,64 @@ class BaseSearcher:
 
                     if reader.has_results:
                         query_id, results_list = reader.read_current_result()
-                        print("Esperados:", results_list)
-                        print("Obtidos:", obtained_results)
-                        # chamar aqui a função que compara os resultados
-                        # e que cria as estatísticas
-                        # esta função deve estar num ficheiro à parte e pode ser
-                        # uma classe com vários métodos, ainda não sei bem
+
+                        recall_list.append(
+                            mc.calculate_recall(obtained_results, results_list)
+                        )
+                        precision_list.append(
+                            mc.calculate_precision(obtained_results, results_list)
+                        )
+                        fmeasure_list.append(
+                            mc.calculate_fmeasure(obtained_results, results_list)
+                        )
+                        avg_precision_list.append(
+                            mc.calculate_average_precision(obtained_results, results_list)
+                        )
+
 
                     query_id, query = reader.read_next_question()
 
+            # Calculate query throughput
+            # query throughput = number of queries / total time spent calculating the results
+            query_throughput = len(query_latency) / sum(query_latency)
+
+            # Calculate median query latency
+            # median query latency = median of the list of query latencies
+            median_query_latency = statistics.median(query_latency)
+
+            # We decided to always write query throughput
+            # and median query latency to a file even if the reader
+            # does not provide the expected results
+            # metrics like recall and precision are only calculated
+            # if the reader provides the expected results and if so,
+            # they are written to the file
+
+            if not os.path.exists("metrics/"):
+                os.mkdir("metrics/")
+
+            file_name = f"metrics/metrics{'_'+index.weight_method if index.weight_method else ''}_{top_k}.txt"
+            with open(file_name, 'w') as metrics_file:
+                metrics_file.write(f"Query throughput: {query_throughput} q/s\n")
+                metrics_file.write(f"Median query latency: {median_query_latency} s\n")
+
+                # if reader.has_results is true then we know that at least the last
+                # read query had expected results, so the length of the lists won't be 0
+                # which means that we can calculate the metrics, since it won't produce a
+                # division by zero error
+                if reader.has_results:
+                    # write average of metrics derived from the expected results
+                    metrics_file.write(
+                        f"Recall: {(sum(recall_list)/len(recall_list)):.2f}\n"
+                    )
+                    metrics_file.write(
+                        f"Precision: {(sum(precision_list)/len(precision_list)):.2f}\n"
+                    )
+                    metrics_file.write(
+                        f"F-Measure: {(sum(fmeasure_list)/len(fmeasure_list)):.2f}\n"
+                    )
+                    metrics_file.write(
+                        f"Avg Precision: {(sum(avg_precision_list)/len(avg_precision_list)):.2f}\n"
+                    )
 
     def boost_scores(self, query, document, boost):
         """
