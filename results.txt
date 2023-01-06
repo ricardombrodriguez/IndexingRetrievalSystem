@@ -1,0 +1,190 @@
+A r e   g u t   m i c r o b i o t a   p r o f i l e s   a l t e r e d   b y   i r r a d i a t i o n ?
+
+I s   T I M - 3   a   t a r g e t   f o r   c a n c e r   i m m u n o t h e r a p y   i n   N S C L C ?
+
+H o w   d o e s   L B - 1 0 0   a f f e c t   t h e   D D R   p r o t e i n s   ( B R C A 1 ,   C h k 2 ,   a n d   γ H 2 A X ) ?
+#1 - 25376608 | weight = 17.228367825534875
+#2 - 24069304 | weight = 11.856752792226978
+#3 - 27760317 | weight = 11.025698743532278
+#4 - 33983578 | weight = 10.956431646985493
+#5 - 24675882 | weight = 10.853404985027641
+#6 - 29199006 | weight = 10.056731824583238
+#7 - 31396623 | weight = 9.94900643363901
+#8 - 19836377 | weight = 8.724070631897252
+#9 - 28381410 | weight = 8.568823879354502
+#10 - 15272308 | weight = 8.487369336266664
+
+W h a t   p a r t i c l e s   i s   H a d r o n   t h e r a p y   u s i n g ?
+
+D o e s   a n   i n t e r f e r o n   ( I F N )   s i g n a t u r e   e x i s t   f o r   S L E   p a t i e n t s ?
+
+I s   A N D - 1 / C t f 4   e s s e n t i a l   f o r   p r o l i f e r a t i o n ?
+
+D o e s   t h e   B R A F V 6 0 0 E   m u t a t i o n   h a v e   a n   e f f e c t   o n   c l i n i c a l   r e s p o n s e   t o   r a d i o i o d i n e   t h e r a p y ?
+#1 - 30312216 | weight = 28.033836844362
+#2 - 29549631 | weight = 19.10398157212103
+#3 - 26780618 | weight = 11.420217920608358
+#4 - 27099668 | weight = 11.35563276454574
+#5 - 32027186 | weight = 11.28299399620544
+#6 - 26838744 | weight = 10.587526818196888
+#7 - 27940476 | weight = 10.320223775800311
+#8 - 32366406 | weight = 10.16868551320806
+#9 - 31352611 | weight = 9.536048941502404
+#10 - 21262211 | weight = 9.516676513063386
+
+W h i c h   p h o s p h a t a s e   i s   i n h i b i t e d   b y   L B - 1 0 0 ?
+
+W h a t   a r e   t h e   m o s t   c o m m o n   s i d e   e f f e c t s   o f   a m a n t a d i n e   E R ?
+
+W h i c h   s y m p t o m s   c o m p r i s e   A b d o m i n a l   a o r t i c   a n e u r y s m   r u p t u r e   T r i a d ?
+
+L i s t   s y m p t o m s   o f   A l l g r o v e   s y n d r o m e .
+
+W h a t   i s   w a t e r   r a d i o l y s i s ?
+
+H o w   d o   t h e   p l a s m a   c o n c e n t r a t i o n s   o f   a m a n t a d i n e   e x t e n d e d   r e l e a s e   a n d   a m a n t a d i n e   i m m e d i a t e   r e l e a s e   c o m p a r e ?
+#1 - 29777529 | weight = 25.416885715880728
+#2 - 29564954 | weight = 22.17189479921009
+#3 - 27011292 | weight = 16.487616568910962
+#4 - 29744244 | weight = 16.402300355682733
+#5 - 24057149 | weight = 15.596388481257332
+#6 - 8531098 | weight = 14.550019863504284
+#7 - 15336450 | weight = 14.51142991482815
+#8 - 3435099 | weight = 14.108708397538162
+#9 - 10695288 | weight = 14.088248695245307
+#10 - 10343152 | weight = 13.853062101165058
+
+I s   t h e   B A G E L   a l g o r i t h m   u s e d   f o r   a r r a y e d   C R I S P R   s c r e e n s ?
+
+W h a t   i s   i n c l u d e d   i n   t h e   L A C E   I n d e x ?
+
+W h i c h   d r u g s   a r e   i n c l u d e d   i n   G I   c o c k t a i l ?
+
+I s   A Z D 5 1 5 3   a c t i v e   i n   p r o s t a t e   c a n c e r ?
+
+I s   G R G 5   i n v o l v e d   o n l y   i n   l a t e   e m b r y o n i c   m o u s e   d e v e l o p m e n t ?
+
+A r e   a s t r o n a u t s   i n   h i g h e r   r i s k   f o r   d e v e l o p i n g   c a n c e r ?
+
+D e s c r i b e   t h e   m e c h a n i s m   o f   a c t i o n   o f   a   d r u g   E l a g o l i x .
+
+D e s c r i b e   m e c h a n i s m   o f   a c t i o n   o f   v o l a n e s o r s e n .
+
+W h a t   i s   t h e   c y b e r k n i f e   u s e d   f o r ?
+
+I s   N i r a p a r i b   e f f e c t i v e   f o r   o v a r i a n   c a n c e r ?
+
+W h i c h   p o r t a l   h a s   b e e n   d e v e l o p e d   t o   e x p l o r e   p r o t e i n - p r o t e i n   i n t e r a c t i o n s   i n   c a n c e r   c e l l   l i n e s ?
+#1 - 31583637 | weight = 20.37406392633678
+#2 - 29186335 | weight = 17.771950938761876
+#3 - 17266597 | weight = 10.321414284773875
+#4 - 23351961 | weight = 9.759576942352963
+#5 - 30181519 | weight = 9.482103925487925
+#6 - 25834829 | weight = 9.352405613181165
+#7 - 28684355 | weight = 9.348591875883159
+#8 - 21382517 | weight = 9.147902853908239
+#9 - 11752321 | weight = 9.082186203535924
+#10 - 22218863 | weight = 9.018387278563146
+
+A r e   g e n e s   t h a t   e s c a p e   X - c h r o m o s o m e   i n a c t i v a t i o n   r e l a t e d   t o   m e n t a l   i m p a i r m e n t ?
+
+W h i c h   b i o l o g i c a l   p r o c e s s   t a k e s   p l a c e   i n   n u c l e a r   s p e c k l e s ?
+
+W h a t   i s   t h e   e f f e c t   o f   H M G B 2   l o s s   o n   C T C F   c l u s t e r i n g ?
+
+H a s   L B - 1 0 0   b e e n   t e s t e d   i n   c l i n i c a l   t r i a l s ?
+
+W h i c h   a l g o r i t h m s   h a v e   b e e n   d e v e l o p e d   f o r   a n a l y s i n g   C R I S P R / C a s 9   k n o c k o u t   s c r e e n s   d a t a ?
+#1 - 25476604 | weight = 19.67911680561022
+#2 - 25428347 | weight = 17.07382731637923
+#3 - 27982060 | weight = 14.662302667501624
+#4 - 31300006 | weight = 13.87450442027441
+#5 - 31819702 | weight = 13.544046317363353
+#6 - 30111820 | weight = 13.326247784842087
+#7 - 33782117 | weight = 12.994529107329782
+#8 - 29953899 | weight = 12.853894691687934
+#9 - 30926729 | weight = 12.612511332830191
+#10 - 32016614 | weight = 12.596981143877112
+
+W h i c h   c e l l s   a r e   a f f e c t e d   i n   r a d i a t i o n - i n d u c e d   l e u k e m i a s ?
+
+P D Q 3 9   q u e s t i o n n a i r e s   i s   d e s i g n   f o r   w h i c h   d i s e a s e ?
+
+I s   p a l b o c i c l i b   e f f e c t i v e   f o r   g l i o b l a s t o m a ?
+
+L i s t   f i v e   p r o t e i n s   w i t h   a n t i o x i d a n t   p r o p e r t i e s ?
+
+D o e s   t h e   M c m 2 - C t f 4 - P o l α   a x i s   p l a y   a   r o l e   i n   t r a n s f e r   o f   h i s t o n e s   t o   l e a d i n g   s t r a n d   D N A   a t   t h e   r e p l i c a t i o n   f o r k s ?
+#1 - 30244834 | weight = 29.583628151839175
+#2 - 3025594 | weight = 19.285311978037175
+#3 - 21113133 | weight = 14.901839913998058
+#4 - 10637338 | weight = 14.708689763402212
+#5 - 27056333 | weight = 14.584334886145076
+#6 - 19560427 | weight = 14.546228886799653
+#7 - 21883247 | weight = 14.148369201056841
+#8 - 17266675 | weight = 13.596566352996472
+#9 - 30082684 | weight = 13.277237396219647
+#10 - 23364835 | weight = 13.263469650093809
+
+W h a t   i s   S c a l p   c i r s o i d   a n e u r y s m s ?
+
+W h i c h   g e n e   i s   f r e q u e n t l y   i n v o l v e d   i n   a u t o s o m a l   d o m i n a n t   a d u l t - o n s e t   d e m y e l i n a t i n g   l e u k o d y s t r o p h y   ( A D L D ) ?
+#1 - 28769756 | weight = 28.27257725769033
+#2 - 25701871 | weight = 27.42006196638115
+#3 - 23261988 | weight = 25.806264137388197
+#4 - 31143934 | weight = 24.800556982208768
+#5 - 21225301 | weight = 23.815856768172907
+#6 - 30697589 | weight = 23.790985013596412
+#7 - 16951681 | weight = 23.47623679252681
+#8 - 23649844 | weight = 22.527535959091534
+#9 - 30949481 | weight = 22.081223947467574
+#10 - 19961535 | weight = 21.97630012744721
+
+W h a t   i s   t h e   r a d i a t i o n - i n d u c e d   C D 8   l y m p h o c y t e   a p o p t o s i s   ( R I L A )   a s s a y   u s e d   f o r ?
+#1 - 30327309 | weight = 21.635271984503788
+#2 - 30220974 | weight = 18.481943440023528
+#3 - 27405696 | weight = 10.225298839354362
+#4 - 12215207 | weight = 9.523643700603758
+#5 - 8528739 | weight = 8.894268865690046
+#6 - 11730845 | weight = 8.77279536715182
+#7 - 15611250 | weight = 8.653752719599877
+#8 - 8892953 | weight = 8.649207362773051
+#9 - 12687228 | weight = 8.649133843507585
+#10 - 1817189 | weight = 8.577099361420997
+
+W h a t   a r e   t h e   p u Q T L s   ( p r o m o t e r - u s a g e   Q u a n t i t a t i v e   T r a i t   L o c i ) ?
+
+W h i c h   i s   t h e   m a i n   e p i g e n e t i c   d i f f e r e n c e   b e t w e e n   p o i s e d   a n d   c o n s t i t u t i v e   e n h a n c e r s ?
+#1 - 21106759 | weight = 15.312504483469045
+#2 - 27285123 | weight = 13.842086262547323
+#3 - 27979994 | weight = 12.099808120710563
+#4 - 28275002 | weight = 11.915805423523164
+#5 - 21160473 | weight = 11.586722267393263
+#6 - 29932419 | weight = 11.353454599421177
+#7 - 26970625 | weight = 10.054766688678033
+#8 - 27095295 | weight = 9.398544454941725
+#9 - 25984238 | weight = 8.546950078244672
+#10 - 23077526 | weight = 8.489271496255471
+
+W h a t   i s   P R L 3 - z u m a b ?
+
+W h i c h   r e c e p t o r   i s   i n h i b i t e d   b y   T i v o z a n i b ?
+
+C a n   d i s c h a r g e   d e s t i n a t i o n s   b e   a c c u r a t e l y   p r e d i c t e d   u s i n g   t h e   R i s k   A s s e s s m e n t   a n d   P r e d i c t i o n   T o o l   ( R A P T ) ?
+#1 - 31327649 | weight = 22.10870276258128
+#2 - 25106801 | weight = 22.104537619259318
+#3 - 29788192 | weight = 22.070583510070968
+#4 - 24717404 | weight = 18.635636965268958
+#5 - 26305296 | weight = 15.739707356882732
+#6 - 24675498 | weight = 11.631985829814209
+#7 - 27323343 | weight = 10.78313068081569
+#8 - 29634597 | weight = 10.407174868479704
+#9 - 26226112 | weight = 9.86161553435963
+#10 - 24096757 | weight = 9.466195787154781
+
+W h a t   i s   P e r t u r b - s e q ?
+
+W h a t   i s   t h e   c o n t e n t   o f   t h e   R E P A I R t o i r e   d a t a b a s e ?
+
+H a s   a m a n t a d i n e   E R   b e e n   a p p r o v e d   b y   t h e   F D A ?
+

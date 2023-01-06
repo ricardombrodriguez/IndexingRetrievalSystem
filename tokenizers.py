@@ -64,7 +64,7 @@ class PubMedTokenizer(Tokenizer):
         """
         return self.__class__.__name__
 
-    def tokenize(self, pub_id, terms):
+    def tokenize(self, terms):
         """
         This function is used to tokenize the terms of a publication
         It divides the terms into words, removes stopwords and punctuation
@@ -96,12 +96,4 @@ class PubMedTokenizer(Tokenizer):
                 stem_t = self.stemmer_obj.stem(filtered_term) if self.stemmer else filtered_term
                 filtered_terms.append(stem_t)
 
-        tokens = {}
-
-        for i, token in enumerate(filtered_terms):
-            if token not in tokens:
-                tokens[token] = { pub_id : [i] }
-            else:
-                tokens[token][pub_id] += [i]
-
-        return tokens
+        return filtered_terms

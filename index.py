@@ -80,7 +80,16 @@ class SPIMIIndexer(Indexer):
             n_documents += 1
 
             # tokenize publication
-            tokens = tokenizer.tokenize(pmid, pub)
+            filtered_terms = tokenizer.tokenize(pub)
+
+            tokens = {}
+
+            # Store tokens term positions
+            for i, token in enumerate(filtered_terms):
+                if token not in tokens:
+                    tokens[token] = { pmid : [i] }
+                else:
+                    tokens[token][pmid] += [i]
 
             # is there any step we need to give because of the weighting method?
             if self.weight_method == 'tfidf':
@@ -281,6 +290,12 @@ class BaseIndex:
     # Apenas escreve o indice em disco de forma ordenada
     def write_to_disk(self, folder):
         pass
+
+    def get_number_documents(self):
+        n_documents = os.getxattr(
+            f"{self.path_to_folder}/index.txt", 'user.indexer_n_documents'
+        ).decode('utf-8')
+        return n_documents
 
     @classmethod
     def load_from_disk(cls, path_to_folder:str):

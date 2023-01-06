@@ -3,9 +3,11 @@ Authors:
 Gonçalo Leal - 98008
 Ricardo Rodriguez - 98388
 """
+from collections import Counter
 import itertools
 from heapq import nlargest
-from math import log10, sqrt
+from math import log10, sqrt, floor
+import os
 from utils import dynamically_init_class
 from json import loads
 
@@ -40,6 +42,18 @@ class BaseSearcher:
     def search(self, index, query_tokens, top_k):
         return NotImplementedError
 
+    def get_query_tokens(self,tokenizer,query):
+        """
+        Invokes tokenizer.tokenize function and stores query token positions
+        """
+        query_tokens = {}
+        for pos,token in enumerate(tokenizer.tokenize(query)):
+            if token not in query_tokens:
+                query_tokens[token] = [pos]
+            else:
+                query_tokens[token] += [pos]
+        return query_tokens
+
     def interactive_search(self, index, tokenizer, top_k=1000, boost=None):
         # Continue query interactive mode
         cont = True
@@ -50,10 +64,11 @@ class BaseSearcher:
             print("\n==================")
             query = input("Insert the query: ")
 
-            query_tokens = {
-                token: pubs['1']
-                for token, pubs in tokenizer.tokenize('1', query).items()
-            }
+            query_tokens = self.get_query_tokens(tokenizer,query)
+
+            if boost:
+                n_documents = index.get_number_documents()
+                query_tokens = self.high_idf_terms(index,query_tokens,n_documents)
 
             results = self.search(index, query_tokens, top_k, boost)
 
@@ -121,12 +136,14 @@ class BaseSearcher:
                 # The reader returns a tuple (query_id, query)
                 # where query_id is the id of the query and query is a string
                 query_id, query = reader.read_next_question()
+
                 while query:
-                    print(query)
-                    query_tokens = {
-                        token: pubs[query_id]
-                        for token, pubs in tokenizer.tokenize(query_id, query).items()
-                    }
+                    
+                    query_tokens = self.get_query_tokens(tokenizer,query)
+
+                    if boost:
+                        n_documents = index.get_number_documents()
+                        query_tokens = self.high_idf_terms(index,query_tokens,n_documents)
 
                     results = self.search(index, query_tokens, top_k, boost)
 
@@ -178,12 +195,65 @@ class BaseSearcher:
             # Create a list of lists with the positions of each query term in the document
             token_positions = [ loads(data[1]) for data in document.values() ]
             min_window_size = self.find_min_window(token_positions)
-            boost_factor = boost * (1 / (min_window_size - num_distinct_terms + 1))
 
-            if boost_factor < 1:
-                boost_factor = 1
+            if num_distinct_terms == min_window_size:
+                boost_factor = boost
+            else:
+                boost_factor = boost ** (1/(min_window_size/2))
 
         return boost_factor
+
+    def high_idf_terms(self, index, query_tokens, n_documents):
+        """
+        This function is responsible to consider only high IDF terms when finding
+        the minimum window. 
+        
+        For the question “Which phosphatase is inhibited by LB-100?”, for example, 
+        the terms considered when finding the minimum window would be “phosphatase 
+        inhibited LB-100”(assuming these terms have high IDF).
+
+        If the query has less than 10 tokens, all of them are considered. If it has
+        between 10-20 tokens, only the 75% tokens with highest IDF are considered.
+        Finally, for the remaining cases, only the 50% tokens with the highest IDF
+        are accepted.
+        """
+
+        num_tokens = len(query_tokens)
+
+        # Calculate query tokens IDF
+        token_idfs = {}
+        for token in query_tokens:
+            posting_list = index.search_token(token)
+            if not posting_list:
+                continue
+            token_idfs[token] = self.calculate_idf(posting_list, n_documents)
+
+        tokens = [k for k,_ in sorted(token_idfs.items(), key = lambda e: (e[1], e[0]))]
+        
+        # Remove tokens from the query according to query size
+        if num_tokens <= 10:
+            removed_tokens = None
+        elif num_tokens > 10 and num_tokens <= 20:
+            removed_tokens = floor(0.25 * num_tokens)
+        elif num_tokens > 20:
+            removed_tokens = floor(0.50 * num_tokens)
+
+        removed_tokens = tokens[:removed_tokens]
+
+        _ = [ 
+            query_tokens.pop(token) 
+            for token in removed_tokens 
+            ]
+    
+        return query_tokens
+
+    def calculate_idf(self, postings_list, n_documents):
+        """
+        Calculates document frequency and then the inverted document frequency
+        """
+        df = len(postings_list)
+        idf = log10( int(n_documents) / df )
+        return idf
 
     def combinations(self, lists):
         """
@@ -393,10 +463,6 @@ class TFIDFRanking(BaseSearcher):
 
             # Get boosted score of the document (optional)
             if boost:
-                if doc_id == "17404117":
-                    print(doc_id)
-                    print(doc_tokens)
-                    print(self.boost_scores(query_tokens, doc_tokens, boost))
                 doc_weights[doc_id] *= self.boost_scores(query_tokens, doc_tokens, boost)
 
 
@@ -496,10 +562,3 @@ class BM25Ranking(BaseSearcher):
         denominator = tf + k1 * ( (1 - b) + b * (int(pub_length)/avg_pub_length) )
         return coefficient * ( nominator / denominator )
 
-    def calculate_idf(self, postings_list, n_documents):
-        """
-        Calculates document frequency and then the inverted document frequency
-        """
-        df = len(postings_list)
-        idf = log10( int(n_documents) / df )
-        return idf
