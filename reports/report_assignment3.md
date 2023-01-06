@@ -25,47 +25,59 @@ To calculate the minimum window size of a document according to the search terms
 The formula used to calculate the boost factor of document is:
 
 ```
-meter aqui
+boost_factor = boost ** (1/(min_window_size/2))
 ```
 
+Since we are using natural language questions as queries, we only consider high IDF terms when finding the minimum window. For the question “Which phosphatase is inhibited by LB-100?”, for example, the terms considered when finding the minimum window would be “phosphatase inhibited LB-100”(assuming these terms have high IDF). If the number of query tokens is equal or less than 10, all tokens are considered for calculating the minimum window size. However, when the number of tokens is ]10,20], the 25% lowest IDF tokens are removed from the query and, when the number of tokens is bigger than 20, only half of the query tokens are considered (the ones with bigger IDF values as well).
 
 
 ## How to run (with boost)
 
-### TFIDF (Manual Mode)
+### Batch Mode
+
+#### TFIDF
 
 ```bash
-python3 main.py searcher <index_file> \
---top_k <TOP_K> \
---path_to_questions questions/questions1.txt \
---output_file results.txt \
---boost <boost_factor> \
+python3 main.py searcher INDEX_FOLDER \
+--top_k K \
+--path_to_questions PATH_TO_QUESTIONS \
+--reader.class GsQuestionsReader \
+--output_file OUTPUT_FILE --boost BOOST \
 ranking.tfidf --ranking.tfidf.smart <smart_notation>
 ```
 
-
-
+#### BM25 
 
 ```bash
-python3 main.py searcher <index_file>\
---top_k <TOP_K> \
---interactive \
---boost <boost_factor> \
-ranking.tfidf --ranking.tfidf.smart <smart_notation>
+python3 main.py searcher INDEX_FOLDER \
+--top_k K \
+--path_to_questions PATH_TO_QUESTIONS \
+--reader.class GsQuestionsReader \
+--output_file OUTPUT_FILE --boost BOOST \
+ranking.bm25 --ranking.bm25.k1 K --ranking.bm25.b B
 ```
 
-Example of running the searcher in interactive mode (with pagination):
-
-![Searcher in interactive mode](lnc_ltc_interactive.png)
+### Interactive Mode
 
 In **interactive mode**, the user doesn't need to give the program a file containing all the queries. Instead, when using the ```bash --interactive``` argument, the program asks the user to insert the query manually and is presented with a paginator containing all the results (10 per page). The number of pages in the paginator depends on the value of the *top_k* argument and the user is allowed to go to the previous/next page, if it's in the defined limit.
 
-- BM25
+#### TFIDF
 
 ```bash
-python3 main.py searcher pubmedSPIMIindexTiny \
---top_k <TOP_K> \
+python3 main.py searcher INDEX_FOLDER \
+--top_k K \
 --interactive \
-ranking.bm25 --ranking.bm25.k1 <k\1> --ranking.bm25.b <b>
+--boost B \
+ranking.tfidf
+```
+
+#### BM25 
+
+```bash
+python3 main.py searcher INDEX_FOLDER \
+--top_k K \
+--interactive \
+--boost BOOST \
+ranking.bm25 --ranking.bm25.k1 K --ranking.bm25.b B
 ```
 
